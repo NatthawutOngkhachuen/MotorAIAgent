@@ -1,0 +1,5 @@
+fastapi
+neo4j
+uvicorn
+psycopg2  # สำหรับ PostgreSQL
+python-dotenv  # สำหรับเก็บ environment variables
