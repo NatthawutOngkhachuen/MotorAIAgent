@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <title>Motor-Agent</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f4f6f8; display: flex; flex-direction: column; height: 100vh; }
+
+    header {
+      background: #1a1a2e; color: #fff;
+      padding: 12px 20px; font-size: 16px; font-weight: 600;
+      display: flex; align-items: center; justify-content: space-between;
+      z-index: 10;
+    }
+
+    .lang-toggle { display: flex; background: #2d2d4e; border-radius: 8px; overflow: hidden; }
+    .lang-toggle button {
+      padding: 6px 14px; font-size: 12px; font-weight: 600;
+      border: none; cursor: pointer; background: transparent; color: #94a3b8;
+    }
+    .lang-toggle button.active { background: #4f46e5; color: #fff; }
+    .lang-toggle button:hover:not(.active) { background: #3d3d5e; color: #fff; }
+
+    #new-chat-btn {
+      padding: 6px 14px; font-size: 12px; font-weight: 600;
+      border: 1px solid #4f46e5; border-radius: 8px;
+      background: transparent; color: #94a3b8; cursor: pointer;
+    }
+    #new-chat-btn:hover { background: #4f46e5; color: #fff; }
+
+    /* Layout */
+    #body-row { display: flex; flex: 1; overflow: hidden; }
+
+    /* Sidebar */
+    #sidebar {
+      width: 240px; background: #1a1a2e; color: #fff;
+      display: flex; flex-direction: column;
+      border-right: 1px solid #2d2d4e; flex-shrink: 0;
+    }
+    #sidebar-title {
+      padding: 14px 16px; font-size: 12px; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      border-bottom: 1px solid #2d2d4e;
+    }
+    #session-list { flex: 1; overflow-y: auto; padding: 8px; }
+    .session-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 10px; border-radius: 8px; cursor: pointer;
+      font-size: 13px; color: #94a3b8; margin-bottom: 4px;
+      transition: background 0.15s;
+    }
+    .session-item:hover { background: #2d2d4e; color: #fff; }
+    .session-item.active { background: #4f46e5; color: #fff; }
+    .session-item .s-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .session-item .s-del {
+      font-size: 14px; padding: 0 4px; color: #64748b;
+      background: none; border: none; cursor: pointer; flex-shrink: 0;
+    }
+    .session-item:hover .s-del,
+    .session-item.active .s-del { color: #fff; }
+    .session-item .s-del:hover { color: #f87171; }
+
+    /* Main chat area */
+    #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+    #chat-window {
+      flex: 1; overflow-y: auto;
+      padding: 24px 16px; display: flex; flex-direction: column; gap: 16px;
+      max-width: 800px; width: 100%; margin: 0 auto;
+    }
+
+    .msg { display: flex; gap: 10px; align-items: flex-start; }
+    .msg.user { flex-direction: row-reverse; }
+    .avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; flex-shrink: 0;
+    }
+    .msg.user .avatar { background: #4f46e5; }
+    .msg.bot  .avatar { background: #e0e7ff; }
+    .bubble {
+      padding: 12px 16px; border-radius: 14px;
+      max-width: calc(100% - 50px); line-height: 1.6; font-size: 14px;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .msg.user .bubble { background: #4f46e5; color: #fff; border-top-right-radius: 3px; }
+    .msg.bot  .bubble { background: #fff; color: #1a1a2e; border: 1px solid #e2e8f0; border-top-left-radius: 3px; }
+    .meta { font-size: 11px; color: #94a3b8; margin-top: 8px; border-top: 1px solid #f1f5f9; padding-top: 6px; }
+    .typing .bubble { color: #94a3b8; font-style: italic; }
+
+    .welcome { text-align: center; color: #94a3b8; margin-top: 60px; }
+    .welcome .icon { font-size: 48px; margin-bottom: 12px; }
+    .welcome p { font-size: 14px; margin-top: 6px; }
+
+    #input-area { background: #fff; border-top: 1px solid #e2e8f0; padding: 14px 16px; }
+    #input-row { max-width: 800px; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end; }
+    textarea {
+      flex: 1; padding: 10px 14px; font-size: 14px;
+      border: 1.5px solid #c7d2fe; border-radius: 10px;
+      outline: none; resize: none; max-height: 120px;
+      font-family: Arial, sans-serif; line-height: 1.5;
+    }
+    textarea:focus { border-color: #4f46e5; }
+    #send-btn {
+      padding: 10px 20px; background: #4f46e5; color: #fff;
+      border: none; border-radius: 10px; cursor: pointer;
+      font-size: 14px; height: 42px;
+    }
+    #send-btn:hover { background: #4338ca; }
+    #send-btn:disabled { background: #c7d2fe; cursor: not-allowed; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div style="display:flex;align-items:center;gap:10px;">🏍️ Motor-Agent</div>
+  <div style="display:flex;gap:8px;align-items:center;">
+    <button id="new-chat-btn" onclick="startNewChat()">+ New Chat</button>
+    <div class="lang-toggle">
+      <button id="btn-th" class="active" onclick="setLang('th')">🇹🇭 ไทย</button>
+      <button id="btn-en" onclick="setLang('en')">🇬🇧 EN</button>
+    </div>
+  </div>
+</header>
+
+<div id="body-row">
+
+  <!-- Sidebar -->
+  <div id="sidebar">
+    <div id="sidebar-title">ประวัติการสนทนา</div>
+    <div id="session-list"></div>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <div id="chat-window">
+      <div class="welcome" id="welcome">
+        <div class="icon">🏍️</div>
+        <p id="welcome-text">บอกความต้องการของคุณ แล้วเราจะแนะนำรถที่เหมาะกับคุณ</p>
+        <p id="welcome-sub" style="font-size:12px;margin-top:8px;">เช่น "ผู้หญิง ชอบทรงน่ารัก" หรือ "ใช้ทางไกล ต้องการความปลอดภัยสูง"</p>
+      </div>
+    </div>
+    <div id="input-area">
+      <div id="input-row">
+        <textarea id="question" rows="1" placeholder="บอกความต้องการของคุณ..."></textarea>
+        <button id="send-btn" onclick="sendQuestion()">ส่ง</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let currentLang    = 'th';
+  let currentSession = null;
+
+  const chatWindow = document.getElementById('chat-window');
+  const questionEl = document.getElementById('question');
+  const sendBtn    = document.getElementById('send-btn');
+
+  const i18n = {
+    th: {
+      placeholder: 'บอกความต้องการของคุณ...',
+      send:        'ส่ง',
+      thinking:    'กำลังวิเคราะห์และแนะนำรถ...',
+      welcome:     'บอกความต้องการของคุณ แล้วเราจะแนะนำรถที่เหมาะกับคุณ',
+      welcomeSub:  'เช่น "ผู้หญิง ชอบทรงน่ารัก" หรือ "ใช้ทางไกล ต้องการความปลอดภัยสูง"',
+      usedData:    (n) => `📊 วิเคราะห์จาก ${n} รุ่น`,
+      error:       '❌ เชื่อมต่อ server ไม่ได้: ',
+      newChat:     'แชทใหม่',
+    },
+    en: {
+      placeholder: 'Describe what you need...',
+      send:        'Send',
+      thinking:    'Analyzing and recommending bikes...',
+      welcome:     "Tell us what you need and we'll recommend the perfect bike.",
+      welcomeSub:  'e.g. "Female rider, cute style" or "Long distance, high safety"',
+      usedData:    (n) => `📊 Analyzed from ${n} models`,
+      error:       '❌ Cannot connect to server: ',
+      newChat:     'New chat',
+    },
+  };
+
+  // ── localStorage: เก็บ list ของ sessions ──────────────────────────────────
+  function getSessions() {
+    return JSON.parse(localStorage.getItem('sessions') || '[]');
+  }
+
+  function saveSessions(sessions) {
+    localStorage.setItem('sessions', JSON.stringify(sessions));
+  }
+
+  function addSession(session_id, title) {
+    const sessions = getSessions();
+    // ถ้ามีอยู่แล้วไม่เพิ่มซ้ำ
+    if (sessions.find(s => s.id === session_id)) return;
+    sessions.unshift({ id: session_id, title });
+    saveSessions(sessions);
+  }
+
+  function deleteSession(session_id) {
+    const sessions = getSessions().filter(s => s.id !== session_id);
+    saveSessions(sessions);
+    if (currentSession === session_id) {
+      currentSession = null;
+      showWelcome();
+    }
+    renderSidebar();
+  }
+
+  function updateSessionTitle(session_id, title) {
+    const sessions = getSessions();
+    const s = sessions.find(s => s.id === session_id);
+    if (s) { s.title = title; saveSessions(sessions); }
+  }
+
+  // ── Sidebar ────────────────────────────────────────────────────────────────
+  function renderSidebar() {
+    const list     = document.getElementById('session-list');
+    const sessions = getSessions();
+    list.innerHTML = '';
+
+    if (sessions.length === 0) {
+      list.innerHTML = '<div style="padding:12px;font-size:12px;color:#475569;text-align:center;">ยังไม่มีประวัติ</div>';
+      return;
+    }
+
+    for (const s of sessions) {
+      const item = document.createElement('div');
+      item.className = 'session-item' + (s.id === currentSession ? ' active' : '');
+      item.innerHTML = `
+        <span class="s-title" title="${s.title}">💬 ${s.title}</span>
+        <button class="s-del" title="ลบ" onclick="event.stopPropagation(); deleteSession('${s.id}')">✕</button>
+      `;
+      item.addEventListener('click', () => switchSession(s.id));
+      list.appendChild(item);
+    }
+  }
+
+  // ── Switch session ─────────────────────────────────────────────────────────
+  async function switchSession(session_id) {
+    currentSession = session_id;
+    localStorage.setItem('last_session', session_id);
+    renderSidebar();
+    chatWindow.innerHTML = '';
+    await loadHistory(session_id);
+  }
+
+  // ── โหลดประวัติ ────────────────────────────────────────────────────────────
+  async function loadHistory(session_id) {
+    if (!session_id) return;
+    try {
+      const res  = await fetch(`/api/v1/history/${session_id}`);
+      const data = await res.json();
+      if (!data.messages || data.messages.length === 0) {
+        showWelcome();
+        return;
+      }
+      const welcome = document.getElementById('welcome');
+      if (welcome) welcome.style.display = 'none';
+      for (const msg of data.messages) {
+        addMsg(msg.role === 'user' ? 'user' : 'bot', msg.content, null);
+      }
+    } catch (e) {
+      showWelcome();
+    }
+  }
+
+  function showWelcome() {
+    chatWindow.innerHTML = '';
+    const w = document.createElement('div');
+    w.id        = 'welcome';
+    w.className = 'welcome';
+    w.innerHTML = `
+      <div class="icon">🏍️</div>
+      <p id="welcome-text">${i18n[currentLang].welcome}</p>
+      <p id="welcome-sub" style="font-size:12px;margin-top:8px;">${i18n[currentLang].welcomeSub}</p>`;
+    chatWindow.appendChild(w);
+  }
+
+  // ── New Chat ───────────────────────────────────────────────────────────────
+  function startNewChat() {
+    currentSession = null;
+    localStorage.removeItem('last_session');
+    showWelcome();
+    renderSidebar();
+    questionEl.focus();
+  }
+
+  // ── Language ───────────────────────────────────────────────────────────────
+  function setLang(lang) {
+    currentLang = lang;
+    document.getElementById('btn-th').classList.toggle('active', lang === 'th');
+    document.getElementById('btn-en').classList.toggle('active', lang === 'en');
+    questionEl.placeholder = i18n[lang].placeholder;
+    sendBtn.textContent    = i18n[lang].send;
+  }
+
+  // ── Add message bubble ─────────────────────────────────────────────────────
+  function addMsg(role, text, meta) {
+    const welcome = document.getElementById('welcome');
+    if (welcome) welcome.style.display = 'none';
+
+    const msg    = document.createElement('div');
+    msg.className = `msg ${role}`;
+    const avatar = document.createElement('div');
+    avatar.className   = 'avatar';
+    avatar.textContent = role === 'user' ? '👤' : '🤖';
+    const bubble = document.createElement('div');
+    bubble.className   = 'bubble';
+    bubble.textContent = text;
+    if (meta) {
+      const m = document.createElement('div');
+      m.className   = 'meta';
+      m.textContent = i18n[currentLang].usedData(meta.context_nodes);
+      bubble.appendChild(m);
+    }
+    msg.appendChild(avatar);
+    msg.appendChild(bubble);
+    chatWindow.appendChild(msg);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+    return msg;
+  }
+
+  // ── Textarea auto-resize ───────────────────────────────────────────────────
+  questionEl.addEventListener('input', () => {
+    questionEl.style.height = 'auto';
+    questionEl.style.height = questionEl.scrollHeight + 'px';
+  });
+  questionEl.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendQuestion(); }
+  });
+
+  // ── Send ───────────────────────────────────────────────────────────────────
+  async function sendQuestion() {
+    const question = questionEl.value.trim();
+    if (!question) return;
+
+    addMsg('user', question);
+    questionEl.value        = '';
+    questionEl.style.height = 'auto';
+    sendBtn.disabled        = true;
+
+    const typing = addMsg('bot', i18n[currentLang].thinking);
+    typing.classList.add('typing');
+
+    try {
+      const body = { question, language: currentLang };
+      if (currentSession) body.session_id = currentSession;
+
+      const res  = await fetch('/api/v1/chat', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+      });
+      const data = await res.json();
+      chatWindow.removeChild(typing);
+
+      if (data.session_id) {
+        const isNew = !currentSession;
+        currentSession = data.session_id;
+        localStorage.setItem('last_session', currentSession);
+
+        if (isNew) {
+          // ตั้งชื่อแชทจากคำถามแรก (ตัด 24 ตัว)
+          const title = question.length > 24 ? question.slice(0, 24) + '…' : question;
+          addSession(currentSession, title);
+          renderSidebar();
+        }
+      }
+
+      addMsg('bot', data.detail ? '❌ ' + data.detail : data.answer, data);
+    } catch (err) {
+      chatWindow.removeChild(typing);
+      addMsg('bot', i18n[currentLang].error + err.message);
+    }
+
+    sendBtn.disabled = false;
+    questionEl.focus();
+  }
+
+  // ── Init ───────────────────────────────────────────────────────────────────
+  (async () => {
+    renderSidebar();
+    const lastSession = localStorage.getItem('last_session');
+    if (lastSession) {
+      currentSession = lastSession;
+      renderSidebar();
+      await loadHistory(lastSession);
+    }
+  })();
+</script>
+</body>
+</html>
