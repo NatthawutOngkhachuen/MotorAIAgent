@@ -1,3 +1,4 @@
+import os
 from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from app.db.neo4j import run_query
@@ -6,7 +7,7 @@ from typing import AsyncGenerator
 import time
 import json
 
-OLLAMA_MODEL  = "typhoon2"
+OLLAMA_MODEL  = os.getenv("OLLAMA_MODEL", "typhoon2")
 GUEST_USER_ID = "00000000-0000-0000-0000-000000000001"
 
 _graph_cache: str | None = None
