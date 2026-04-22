@@ -1,7 +1,8 @@
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from app.api.V1.models import SearchRequest, ChatRequest
 from app.services.query_service import search_by_keyword, get_full_graph
-from app.services.chat_service import answer_question, clear_graph_cache
+from app.services.chat_service import stream_answer, clear_graph_cache
 from app.db import postgresql as pg
 
 router = APIRouter()
@@ -22,22 +23,25 @@ async def graph():
 
 @router.post("/graph/refresh")
 async def refresh_graph():
-    """ล้าง graph cache เมื่อข้อมูล Neo4j อัปเดต"""
     clear_graph_cache()
     return {"status": "cache cleared"}
 
 
 @router.post("/chat")
 async def chat(req: ChatRequest):
-    try:
-        return answer_question(
+    return StreamingResponse(
+        stream_answer(
             question=req.question,
             language=req.language,
             session_id=req.session_id,
             user_id=req.user_id,
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        ),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control":    "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/history/{session_id}")
