@@ -1,12 +1,16 @@
 from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage
+
 from app.db.neo4j import run_query
+from app.db import postgresql as pg
 
-OLLAMA_MODEL = "typhoon2"
+OLLAMA_MODEL  = "typhoon2"
+GUEST_USER_ID = "00000000-0000-0000-0000-000000000001"
 
+
+# ─── Neo4j ────────────────────────────────────────────────────────────────────
 
 def search_vehicles_from_graph() -> str:
-    """ดึงข้อมูลรถทั้งหมดจาก Neo4j"""
     cypher = """
         MATCH (m:VehicleModel)
         OPTIONAL MATCH (m)-[r1]->(entity)
@@ -33,21 +37,20 @@ def search_vehicles_from_graph() -> str:
                 "comfort": [], "safety": [], "storage": [],
                 "brand": [], "decision_factor": [], "other": [],
             }
-
         rel1     = (row.get("rel1") or "").upper()
         entity   = row.get("entity_name") or ""
         semantic = row.get("semantic_name") or ""
         entry    = f"{entity} ({semantic})" if semantic else entity
 
-        if   "STYLE"      in rel1: models[model]["style"].append(entry)
-        elif "USE_CASE"   in rel1: models[model]["use_case"].append(entry)
-        elif "PERFORMANCE"in rel1: models[model]["performance"].append(entry)
-        elif "COMFORT"    in rel1: models[model]["comfort"].append(entry)
-        elif "SAFETY"     in rel1: models[model]["safety"].append(entry)
-        elif "STORAGE"    in rel1: models[model]["storage"].append(entry)
-        elif "BRAND"      in rel1: models[model]["brand"].append(entry)
-        elif "DECISION"   in rel1: models[model]["decision_factor"].append(entry)
-        elif rel1:                 models[model]["other"].append(f"{rel1}: {entry}")
+        if   "STYLE"       in rel1: models[model]["style"].append(entry)
+        elif "USE_CASE"    in rel1: models[model]["use_case"].append(entry)
+        elif "PERFORMANCE" in rel1: models[model]["performance"].append(entry)
+        elif "COMFORT"     in rel1: models[model]["comfort"].append(entry)
+        elif "SAFETY"      in rel1: models[model]["safety"].append(entry)
+        elif "STORAGE"     in rel1: models[model]["storage"].append(entry)
+        elif "BRAND"       in rel1: models[model]["brand"].append(entry)
+        elif "DECISION"    in rel1: models[model]["decision_factor"].append(entry)
+        elif rel1:                  models[model]["other"].append(f"{rel1}: {entry}")
 
     lines = ["ข้อมูลรถมอเตอร์ไซค์ในฐานข้อมูล:\n"]
     for name, d in models.items():
@@ -64,6 +67,8 @@ def search_vehicles_from_graph() -> str:
         lines.append("")
     return "\n".join(lines)
 
+
+# ─── Prompt ───────────────────────────────────────────────────────────────────
 
 def build_system_prompt(language: str) -> str:
     if language == "en":
@@ -88,63 +93,71 @@ Rules:
 6. ห้ามแนะนำรถที่ไม่มีในฐานข้อมูล"""
 
 
-def answer_question(question: str, language: str = "th") -> dict:
-    """Pipeline หลัก: ดึง Neo4j → LangChain + Ollama → คำตอบ"""
-    context = search_vehicles_from_graph()
+# ─── Main pipeline (ไม่มี Redis) ──────────────────────────────────────────────
 
-    llm = ChatOllama(model=OLLAMA_MODEL, temperature=0.7)
+def answer_question(question: str, language: str = "th",
+                    session_id: str = None, user_id: str = None) -> dict:
+    """
+    Pipeline หลัก:
+      1. ตรวจ / สร้าง session
+      2. ดึง context จาก PostgreSQL โดยตรง
+      3. ดึง knowledge จาก Neo4j (GraphRAG)
+      4. เรียก LLM
+      5. บันทึกลง PostgreSQL
+    """
+    user_id = user_id or GUEST_USER_ID
 
-    # บังคับภาษาใน HumanMessage ด้วย
-    lang_instruction = "ตอบเป็นภาษาไทยเท่านั้น" if language == "th" else "Reply in English only"
+    # ── 1. Session ────────────────────────────────────────────────────────────
+    if not session_id:
+        session_id = pg.create_session(user_id)
 
-    messages = [
-        SystemMessage(content=build_system_prompt(language)),
-        HumanMessage(content=(
-            f"ข้อมูลรถในฐานข้อมูล:\n{context}\n\n"
-            f"คำถามผู้ใช้: {question}\n\n"
-            f"[{lang_instruction}]"
-        )),
-    ]
+    # ── 2. Context จาก PostgreSQL โดยตรง ─────────────────────────────────────
+    context = pg.load_recent_messages(session_id, limit=15)
 
-    response = llm.invoke(messages)
-    model_count = context.count("รุ่น:")
+    # ── 3. Knowledge จาก Neo4j (GraphRAG hook) ───────────────────────────────
+    graph_context = search_vehicles_from_graph()
+    model_count   = graph_context.count("รุ่น:")
 
-    return {
-        "question": question,
-        "answer": response.content,
-        "context_nodes": model_count,
-        "context_edges": 0,
-    }
-
-
-def answer_question(question: str, language: str = "th") -> dict:
-    context = search_vehicles_from_graph()
-    llm = ChatOllama(model=OLLAMA_MODEL, temperature=0.7)
-
+    # ── 4. สร้าง messages สำหรับ LLM ─────────────────────────────────────────
     if language == "th":
         user_content = (
-            f"ข้อมูลรถในฐานข้อมูล:\n{context}\n\n"
+            f"ข้อมูลรถในฐานข้อมูล:\n{graph_context}\n\n"
             f"คำถามผู้ใช้: {question}\n\n"
             f"กรุณาตอบคำถามนี้เป็นภาษาไทยเท่านั้น"
         )
     else:
         user_content = (
-            f"Vehicle database:\n{context}\n\n"
+            f"Vehicle database:\n{graph_context}\n\n"
             f"User question: {question}\n\n"
             f"Please answer in English only."
         )
 
-    messages = [
+    llm_messages = [
         SystemMessage(content=build_system_prompt(language)),
+        # ใส่ประวัติการสนทนาจาก PostgreSQL
+        *[
+            HumanMessage(content=m["content"]) if m["role"] == "user"
+            else SystemMessage(content=m["content"])
+            for m in context
+        ],
         HumanMessage(content=user_content),
     ]
 
-    response = llm.invoke(messages)
-    model_count = context.count("รุ่น:")
+    # ── 5. เรียก LLM ──────────────────────────────────────────────────────────
+    llm      = ChatOllama(model=OLLAMA_MODEL, temperature=0.7)
+    response = llm.invoke(llm_messages)
+    answer   = response.content
+
+    # ── 6. บันทึกลง PostgreSQL ────────────────────────────────────────────────
+    pg.save_message(session_id, user_id, "user",      question)
+    pg.save_message(session_id, user_id, "assistant", answer,
+                    rag_sources=[{"source": "neo4j", "model_count": model_count}])
+    pg.update_session_active(session_id)
 
     return {
-        "question": question,
-        "answer": response.content,
+        "session_id":    session_id,
+        "question":      question,
+        "answer":        answer,
         "context_nodes": model_count,
         "context_edges": 0,
     }
