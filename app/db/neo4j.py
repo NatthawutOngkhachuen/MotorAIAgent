@@ -1,8 +1,9 @@
 import os
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
+from pathlib import Path
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 _driver = GraphDatabase.driver(
     os.getenv("NEO4J_URI", "bolt://localhost:7687"),

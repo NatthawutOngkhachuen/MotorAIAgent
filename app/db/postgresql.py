@@ -2,88 +2,101 @@ import os
 import json
 import psycopg2
 import psycopg2.extras
-from dotenv import load_dotenv
 from pathlib import Path
+from dotenv import load_dotenv
+from psycopg2 import pool as pg_pool
+
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
+_pool = pg_pool.SimpleConnectionPool(
+    minconn=1,
+    maxconn=5,
+    host=os.getenv("POSTGRES_HOST", "localhost"),
+    port=int(os.getenv("POSTGRES_PORT", 5432)),
+    dbname=os.getenv("POSTGRES_DB", "motorcycle_chatbot"),
+    user=os.getenv("POSTGRES_USER", "postgres"),
+    password=os.getenv("POSTGRES_PASSWORD", "postgres"),
+)
+
 def get_connection():
-    return psycopg2.connect(
-        host=os.getenv("POSTGRES_HOST", "localhost"),
-        port=int(os.getenv("POSTGRES_PORT", 5432)),
-        dbname=os.getenv("POSTGRES_DB", "motorcycle_chatbot"),
-        user=os.getenv("POSTGRES_USER", "postgres"),
-        password=os.getenv("POSTGRES_PASSWORD", "postgres"),
-    )
+    return _pool.getconn()
 
+def release_connection(conn):
+    _pool.putconn(conn)
 
-# ─── Sessions ─────────────────────────────────────────────────────────────────
 
 def create_session(user_id: str) -> str:
-    """สร้าง session ใหม่ คืน session_id"""
-    sql = """
-        INSERT INTO sessions (user_id)
-        VALUES (%s)
-        RETURNING session_id::text
-    """
-    with get_connection() as conn:
+    conn = get_connection()
+    try:
         with conn.cursor() as cur:
-            cur.execute(sql, (user_id,))
+            cur.execute(
+                "INSERT INTO sessions (user_id) VALUES (%s) RETURNING session_id::text",
+                (user_id,)
+            )
+            conn.commit()
             return cur.fetchone()[0]
+    finally:
+        release_connection(conn)
 
 
 def update_session_active(session_id: str):
-    """อัปเดต last_active ทุกครั้งที่มีข้อความใหม่"""
-    sql = "UPDATE sessions SET last_active = NOW() WHERE session_id = %s"
-    with get_connection() as conn:
+    conn = get_connection()
+    try:
         with conn.cursor() as cur:
-            cur.execute(sql, (session_id,))
+            cur.execute(
+                "UPDATE sessions SET last_active = NOW() WHERE session_id = %s",
+                (session_id,)
+            )
+            conn.commit()
+    finally:
+        release_connection(conn)
 
-
-# ─── Messages ─────────────────────────────────────────────────────────────────
 
 def save_message(session_id: str, user_id: str, role: str,
                  content: str, rag_sources: list = None):
-    """บันทึก 1 ข้อความลง chat_messages"""
-    sql = """
-        INSERT INTO chat_messages (session_id, user_id, role, content, rag_sources)
-        VALUES (%s, %s, %s, %s, %s)
-        RETURNING id::text
-    """
-    sources_json = json.dumps(rag_sources or [], ensure_ascii=False)
-    with get_connection() as conn:
+    conn = get_connection()
+    try:
         with conn.cursor() as cur:
-            cur.execute(sql, (session_id, user_id, role, content, sources_json))
+            cur.execute(
+                "INSERT INTO chat_messages (session_id, user_id, role, content, rag_sources) "
+                "VALUES (%s, %s, %s, %s, %s) RETURNING id::text",
+                (session_id, user_id, role, content,
+                 json.dumps(rag_sources or [], ensure_ascii=False))
+            )
+            conn.commit()
             return cur.fetchone()[0]
+    finally:
+        release_connection(conn)
 
 
-def load_recent_messages(session_id: str, limit: int = 15) -> list:
-    """โหลด N ข้อความล่าสุดของ session (เรียงเก่า → ใหม่)"""
+def load_recent_messages(session_id: str, limit: int = 4) -> list:
     sql = """
-        SELECT role, content
-        FROM (
+        SELECT role, content FROM (
             SELECT role, content, created_at
             FROM chat_messages
             WHERE session_id = %s
             ORDER BY created_at DESC
             LIMIT %s
-        ) sub
-        ORDER BY created_at ASC
+        ) sub ORDER BY created_at ASC
     """
-    with get_connection() as conn:
+    conn = get_connection()
+    try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
             cur.execute(sql, (session_id, limit))
             return [dict(r) for r in cur.fetchall()]
+    finally:
+        release_connection(conn)
 
 
 def load_all_messages(session_id: str) -> list:
-    """โหลดประวัติทั้งหมดของ session (สำหรับแสดง UI)"""
-    sql = """
-        SELECT role, content, created_at::text AS created_at
-        FROM chat_messages
-        WHERE session_id = %s
-        ORDER BY created_at ASC
-    """
-    with get_connection() as conn:
+    conn = get_connection()
+    try:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute(sql, (session_id,))
+            cur.execute(
+                "SELECT role, content, created_at::text AS created_at "
+                "FROM chat_messages WHERE session_id = %s ORDER BY created_at ASC",
+                (session_id,)
+            )
             return [dict(r) for r in cur.fetchall()]
+    finally:
+        release_connection(conn)

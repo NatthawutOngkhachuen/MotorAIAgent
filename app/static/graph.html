@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Knowledge Graph</title>
+  <script src="https://unpkg.com/vis-network@9.1.9/standalone/umd/vis-network.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #0f0f1a; color: #fff; display: flex; flex-direction: column; height: 100vh; }
+
+    header {
+      background: #1a1a2e; padding: 12px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid #2d2d4e; flex-shrink: 0;
+    }
+    header h1 { font-size: 16px; display: flex; align-items: center; gap: 8px; }
+    .badge { font-size: 11px; background: #4f46e5; padding: 2px 8px; border-radius: 99px; }
+
+    #controls {
+      background: #1a1a2e; padding: 10px 20px;
+      display: flex; align-items: center; gap: 10px;
+      border-bottom: 1px solid #2d2d4e; flex-wrap: wrap; flex-shrink: 0;
+    }
+    #search-box {
+      padding: 6px 12px; border-radius: 8px; border: 1px solid #4f46e5;
+      background: #0f0f1a; color: #fff; font-size: 13px; width: 200px;
+    }
+    #search-box::placeholder { color: #64748b; }
+    #model-select {
+      padding: 6px 10px; border-radius: 8px; border: 1px solid #2d2d4e;
+      background: #0f0f1a; color: #fff; font-size: 13px; max-width: 180px;
+    }
+    .btn {
+      padding: 6px 14px; border-radius: 8px; border: none; cursor: pointer;
+      font-size: 12px; font-weight: 600; white-space: nowrap;
+    }
+    .btn-primary { background: #4f46e5; color: #fff; }
+    .btn-primary:hover { background: #4338ca; }
+    .btn-ghost { background: transparent; color: #94a3b8; border: 1px solid #2d2d4e; }
+    .btn-ghost:hover { background: #2d2d4e; color: #fff; }
+    .btn-danger { background: transparent; color: #f87171; border: 1px solid #7f1d1d; }
+    .btn-danger:hover { background: #7f1d1d; color: #fff; }
+
+    /* Label filter pills */
+    #label-filters { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+    .label-pill {
+      padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600;
+      cursor: pointer; border: 2px solid transparent; opacity: 0.5; transition: opacity 0.15s;
+      user-select: none;
+    }
+    .label-pill.active { opacity: 1; }
+
+    #main { display: flex; flex: 1; overflow: hidden; }
+
+    #graph-container { flex: 1; position: relative; }
+    #graph { width: 100%; height: 100%; }
+
+    #loading {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #0f0f1a; font-size: 14px; color: #64748b; z-index: 10; gap: 8px;
+    }
+    .spinner {
+      width: 32px; height: 32px; border: 3px solid #2d2d4e;
+      border-top-color: #4f46e5; border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #inspector {
+      width: 270px; background: #1a1a2e; border-left: 1px solid #2d2d4e;
+      display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;
+    }
+    #inspector-header {
+      padding: 12px 16px; font-size: 11px; color: #64748b;
+      text-transform: uppercase; letter-spacing: 0.05em;
+      border-bottom: 1px solid #2d2d4e; flex-shrink: 0;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    #inspector-body { flex: 1; overflow-y: auto; padding: 14px 16px; }
+    .insp-empty { font-size: 13px; color: #475569; text-align: center; margin-top: 40px; }
+    .insp-label {
+      display: inline-block; padding: 3px 10px; border-radius: 99px;
+      font-size: 11px; font-weight: 600; margin-bottom: 10px;
+    }
+    .insp-name { font-size: 16px; font-weight: 600; margin-bottom: 12px; word-break: break-word; }
+    .insp-row {
+      display: flex; justify-content: space-between; padding: 6px 0;
+      border-bottom: 1px solid #1e293b; font-size: 12px; gap: 8px;
+    }
+    .insp-key { color: #64748b; flex-shrink: 0; }
+    .insp-val { color: #e2e8f0; text-align: right; word-break: break-word; }
+    .insp-section { font-size: 11px; color: #4f46e5; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .neighbor-chip {
+      display: inline-block; padding: 2px 8px; border-radius: 6px;
+      font-size: 11px; background: #1e293b; color: #94a3b8;
+      margin: 2px; cursor: pointer;
+    }
+    .neighbor-chip:hover { background: #4f46e5; color: #fff; }
+    .focus-btn {
+      padding: 2px 8px; border-radius: 6px; font-size: 11px;
+      background: #1e293b; color: #818cf8; border: none; cursor: pointer;
+    }
+    .focus-btn:hover { background: #4f46e5; color: #fff; }
+
+    #stats {
+      background: #1a1a2e; padding: 5px 20px;
+      font-size: 11px; color: #64748b;
+      display: flex; gap: 16px; border-top: 1px solid #2d2d4e; flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🕸️ Knowledge Graph <span class="badge">Neo4j</span></h1>
+  <a href="/" style="font-size:12px;color:#94a3b8;text-decoration:none;">← กลับ Chat</a>
+</header>
+
+<!-- Controls Row 1: Search + Model filter + Buttons -->
+<div id="controls">
+  <input id="search-box" type="text" placeholder="🔍 ค้นหา node..." oninput="onSearch(this.value)"/>
+
+  <select id="model-select" onchange="focusModel(this.value)">
+    <option value="">— เลือกรุ่นรถ —</option>
+  </select>
+
+  <button class="btn btn-primary" onclick="loadGraph()">โหลดใหม่</button>
+  <button class="btn btn-ghost"   onclick="fitGraph()">Fit</button>
+  <button class="btn btn-danger"  onclick="resetFilters()">Reset</button>
+
+  <!-- Label filter pills -->
+  <div id="label-filters"></div>
+</div>
+
+<div id="main">
+  <div id="graph-container">
+    <div id="loading">
+      <div class="spinner"></div>
+      <span>กำลังโหลด graph จาก Neo4j...</span>
+    </div>
+    <div id="graph"></div>
+  </div>
+
+  <div id="inspector">
+    <div id="inspector-header">
+      <span>Node Inspector</span>
+      <button class="focus-btn" id="expand-btn" style="display:none" onclick="expandSelected()">แสดงเฉพาะที่เชื่อมต่อ</button>
+    </div>
+    <div id="inspector-body">
+      <div class="insp-empty">คลิก node เพื่อดูข้อมูล</div>
+    </div>
+  </div>
+</div>
+
+<div id="stats">
+  <span id="stat-nodes">Nodes: -</span>
+  <span id="stat-edges">Edges: -</span>
+  <span id="stat-visible">แสดง: -</span>
+  <span id="stat-selected"></span>
+</div>
+
+<script>
+  const COLORS = {
+    VehicleModel:      { bg: '#7c3aed', border: '#a78bfa', text: '#fff' },
+    Brand:             { bg: '#dc2626', border: '#f87171', text: '#fff' },
+    EngineSpec:        { bg: '#ea580c', border: '#fdba74', text: '#fff' },
+    SafetyFeature:     { bg: '#2563eb', border: '#93c5fd', text: '#fff' },
+    Color:             { bg: '#6b7280', border: '#d1d5db', text: '#fff' },
+    DesignStyle:       { bg: '#d97706', border: '#fcd34d', text: '#fff' },
+    ComfortFeature:    { bg: '#7c3aed', border: '#c4b5fd', text: '#fff' },
+    StorageFeature:    { bg: '#65a30d', border: '#bef264', text: '#fff' },
+    PerformanceFeature:{ bg: '#db2777', border: '#f9a8d4', text: '#fff' },
+    UseCase:           { bg: '#059669', border: '#6ee7b7', text: '#fff' },
+    DecisionFactor:    { bg: '#0891b2', border: '#67e8f9', text: '#fff' },
+    ConceptNode:       { bg: '#4f46e5', border: '#818cf8', text: '#fff' },
+    SalesPitchPoint:   { bg: '#be185d', border: '#f472b6', text: '#fff' },
+    EfficiencyFeature: { bg: '#15803d', border: '#86efac', text: '#fff' },
+    TargetUser:        { bg: '#b45309', border: '#fbbf24', text: '#fff' },
+    VehicleClass:      { bg: '#7e22ce', border: '#d8b4fe', text: '#fff' },
+    Technology:        { bg: '#0e7490', border: '#67e8f9', text: '#fff' },
+    Customization:     { bg: '#92400e', border: '#fcd34d', text: '#1a1a2e' },
+    BrandPerception:   { bg: '#831843', border: '#f9a8d4', text: '#fff' },
+    ColorStyle:        { bg: '#374151', border: '#9ca3af', text: '#fff' },
+    MaintenancePoint:  { bg: '#1e3a5f', border: '#60a5fa', text: '#fff' },
+    Maintenance:       { bg: '#1e3a5f', border: '#93c5fd', text: '#fff' },
+    ConvenienceFeature:{ bg: '#166534', border: '#86efac', text: '#fff' },
+    DurabilityFeature: { bg: '#713f12', border: '#fbbf24', text: '#fff' },
+    default:           { bg: '#334155', border: '#64748b', text: '#fff' },
+  };
+
+  function getColor(label) { return COLORS[label] || COLORS.default; }
+
+  let network      = null;
+  let allNodes     = [];
+  let allEdges     = [];
+  let nodesDS      = null;
+  let edgesDS      = null;
+  let activeLabels = new Set();
+  let selectedId   = null;
+  let focusMode    = false;
+
+  // ── Load ──────────────────────────────────────────────────────────────────
+  async function loadGraph() {
+    document.getElementById('loading').style.display = 'flex';
+    try {
+      const res  = await fetch('/api/v1/graph');
+      const data = await res.json();
+      allNodes = data.nodes;
+      allEdges = data.edges;
+
+      buildLabelFilters();
+      buildModelSelect();
+      renderGraph();
+
+      document.getElementById('stat-nodes').textContent   = `Nodes: ${data.node_count}`;
+      document.getElementById('stat-edges').textContent   = `Edges: ${data.edge_count}`;
+      document.getElementById('stat-visible').textContent = `แสดง: ${data.node_count}`;
+    } catch (e) {
+      document.getElementById('loading').innerHTML = `<span style="color:#f87171">❌ โหลดไม่ได้: ${e.message}</span>`;
+    }
+  }
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+  function renderGraph() {
+    const visNodes = allNodes.map(n => {
+      const c = getColor(n.label);
+      return {
+        id:    n.id,
+        label: n.name || n.id,
+        title: buildTooltip(n),
+        color: { background: c.bg, border: c.border, highlight: { background: c.border, border: '#fff' } },
+        font:  { color: c.text, size: 11 },
+        shape: 'dot',
+        size:  n.label === 'VehicleModel' ? 22 : n.label === 'Brand' ? 18 : 13,
+        borderWidth: 2,
+        _data: n,
+      };
+    });
+
+    const visEdges = allEdges.map((e, i) => ({
+      id:     i,
+      from:   e.from,
+      to:     e.to,
+      label:  e.rel,
+      font:   { color: '#475569', size: 9, align: 'middle' },
+      color:  { color: '#1e293b', highlight: '#818cf8', opacity: 0.7 },
+      arrows: { to: { enabled: true, scaleFactor: 0.5 } },
+      smooth: { type: 'curvedCW', roundness: 0.1 },
+    }));
+
+    nodesDS = new vis.DataSet(visNodes);
+    edgesDS = new vis.DataSet(visEdges);
+
+    if (network) network.destroy();
+    network = new vis.Network(
+      document.getElementById('graph'),
+      { nodes: nodesDS, edges: edgesDS },
+      {
+        physics: {
+          enabled: true,
+          forceAtlas2Based: { gravitationalConstant: -60, centralGravity: 0.01, springLength: 130, springConstant: 0.08 },
+          solver: 'forceAtlas2Based',
+          stabilization: { iterations: 200 },
+        },
+        interaction: { hover: true, tooltipDelay: 300, multiselect: false },
+      }
+    );
+
+    network.on('stabilizationIterationsDone', () => {
+      document.getElementById('loading').style.display = 'none';
+      network.setOptions({ physics: { enabled: false } });
+      updateVisibleCount();
+    });
+
+    network.on('click', params => {
+      if (params.nodes.length > 0) {
+        selectedId = params.nodes[0];
+        const node = nodesDS.get(selectedId);
+        showInspector(node._data);
+        document.getElementById('expand-btn').style.display = 'inline-block';
+        document.getElementById('stat-selected').textContent = `เลือก: ${node.label}`;
+      } else {
+        if (focusMode) resetFilters();
+        selectedId = null;
+        clearInspector();
+        document.getElementById('expand-btn').style.display = 'none';
+        document.getElementById('stat-selected').textContent = '';
+      }
+    });
+  }
+
+  // ── Label filter pills ────────────────────────────────────────────────────
+  function buildLabelFilters() {
+    const labels = [...new Set(allNodes.map(n => n.label))].sort();
+    activeLabels = new Set(labels);
+    const container = document.getElementById('label-filters');
+    container.innerHTML = '';
+    labels.forEach(l => {
+      const c    = getColor(l);
+      const pill = document.createElement('span');
+      pill.className   = 'label-pill active';
+      pill.textContent = l;
+      pill.style.background  = c.bg;
+      pill.style.borderColor = c.border;
+      pill.style.color       = c.text;
+      pill.dataset.label     = l;
+      pill.onclick = () => toggleLabel(l, pill);
+      container.appendChild(pill);
+    });
+  }
+
+  function toggleLabel(label, pill) {
+    if (activeLabels.has(label)) {
+      activeLabels.delete(label);
+      pill.classList.remove('active');
+    } else {
+      activeLabels.add(label);
+      pill.classList.add('active');
+    }
+    applyFilters();
+  }
+
+  // ── Model dropdown ────────────────────────────────────────────────────────
+  function buildModelSelect() {
+    const sel    = document.getElementById('model-select');
+    const models = allNodes.filter(n => n.label === 'VehicleModel').sort((a, b) => a.name.localeCompare(b.name));
+    sel.innerHTML = '<option value="">— เลือกรุ่นรถ —</option>';
+    models.forEach(m => {
+      const opt   = document.createElement('option');
+      opt.value   = m.id;
+      opt.textContent = m.name;
+      sel.appendChild(opt);
+    });
+  }
+
+  function focusModel(nodeId) {
+    if (!nodeId) { resetFilters(); return; }
+    focusMode  = true;
+    selectedId = nodeId;
+
+    const connectedIds = new Set([nodeId]);
+    allEdges.forEach(e => {
+      if (e.from === nodeId) connectedIds.add(e.to);
+      if (e.to   === nodeId) connectedIds.add(e.from);
+    });
+
+    nodesDS.update(allNodes.map(n => ({ id: n.id, hidden: !connectedIds.has(n.id) })));
+    edgesDS.update(allEdges.map((e, i) => ({
+      id:     i,
+      hidden: !(connectedIds.has(e.from) && connectedIds.has(e.to)),
+    })));
+
+    network.focus(nodeId, { scale: 1.2, animation: true });
+    const node = nodesDS.get(nodeId);
+    if (node) showInspector(node._data);
+    updateVisibleCount();
+  }
+
+  // ── Expand selected (show only connected) ─────────────────────────────────
+  function expandSelected() {
+    if (!selectedId) return;
+    focusModel(selectedId);
+  }
+
+  // ── Search ────────────────────────────────────────────────────────────────
+  function onSearch(kw) {
+    kw = kw.toLowerCase().trim();
+    if (!kw) { applyFilters(); return; }
+
+    const matchIds = new Set();
+    allNodes.forEach(n => {
+      if (JSON.stringify(n.props).toLowerCase().includes(kw) ||
+          n.label.toLowerCase().includes(kw) ||
+          (n.name || '').toLowerCase().includes(kw)) {
+        matchIds.add(n.id);
+      }
+    });
+
+    nodesDS.update(allNodes.map(n => ({ id: n.id, hidden: !matchIds.has(n.id) })));
+    edgesDS.update(allEdges.map((e, i) => ({
+      id:     i,
+      hidden: !(matchIds.has(e.from) && matchIds.has(e.to)),
+    })));
+    updateVisibleCount();
+  }
+
+  // ── Apply label filters ───────────────────────────────────────────────────
+  function applyFilters() {
+    focusMode = false;
+    nodesDS.update(allNodes.map(n => ({ id: n.id, hidden: !activeLabels.has(n.label) })));
+    edgesDS.update(allEdges.map((e, i) => {
+      const fn = allNodes.find(n => n.id === e.from);
+      const tn = allNodes.find(n => n.id === e.to);
+      return {
+        id:     i,
+        hidden: !(fn && tn && activeLabels.has(fn.label) && activeLabels.has(tn.label)),
+      };
+    }));
+    updateVisibleCount();
+  }
+
+  // ── Reset ─────────────────────────────────────────────────────────────────
+  function resetFilters() {
+    focusMode = false;
+    document.getElementById('search-box').value = '';
+    document.getElementById('model-select').value = '';
+    document.querySelectorAll('.label-pill').forEach(p => {
+      p.classList.add('active');
+      activeLabels.add(p.dataset.label);
+    });
+    nodesDS.update(allNodes.map(n => ({ id: n.id, hidden: false })));
+    edgesDS.update(allEdges.map((e, i) => ({ id: i, hidden: false })));
+    updateVisibleCount();
+  }
+
+  function fitGraph() { network && network.fit({ animation: true }); }
+
+  function updateVisibleCount() {
+    const visible = allNodes.filter(n => !nodesDS.get(n.id)?.hidden).length;
+    document.getElementById('stat-visible').textContent = `แสดง: ${visible} nodes`;
+  }
+
+  // ── Inspector ─────────────────────────────────────────────────────────────
+  function showInspector(node) {
+    const c = getColor(node.label);
+
+    // หา neighbors
+    const neighbors = [];
+    allEdges.forEach(e => {
+      if (e.from === node.id) {
+        const t = allNodes.find(n => n.id === e.to);
+        if (t) neighbors.push({ node: t, rel: e.rel, dir: '→' });
+      }
+      if (e.to === node.id) {
+        const f = allNodes.find(n => n.id === e.from);
+        if (f) neighbors.push({ node: f, rel: e.rel, dir: '←' });
+      }
+    });
+
+    let html = `<span class="insp-label" style="background:${c.bg};color:${c.text}">${node.label}</span>`;
+    html += `<div class="insp-name">${node.name}</div>`;
+
+    // Properties
+    for (const [k, v] of Object.entries(node.props || {})) {
+      html += `<div class="insp-row"><span class="insp-key">${k}</span><span class="insp-val">${v}</span></div>`;
+    }
+
+    // Neighbors
+    if (neighbors.length > 0) {
+      html += `<div class="insp-section">เชื่อมต่อ (${neighbors.length})</div>`;
+      neighbors.forEach(nb => {
+        html += `<span class="neighbor-chip" onclick="focusModel('${nb.node.id}')" title="${nb.rel}">
+          ${nb.dir} ${nb.node.name || nb.node.id}
+        </span>`;
+      });
+    }
+
+    document.getElementById('inspector-body').innerHTML = html;
+  }
+
+  function clearInspector() {
+    document.getElementById('inspector-body').innerHTML =
+      '<div class="insp-empty">คลิก node เพื่อดูข้อมูล</div>';
+  }
+
+  // ── Tooltip ───────────────────────────────────────────────────────────────
+  function buildTooltip(n) {
+    const lines = [`<b>${n.name}</b>`, `Label: ${n.label}`];
+    for (const [k, v] of Object.entries(n.props || {})) {
+      if (k !== 'name') lines.push(`${k}: ${v}`);
+    }
+    return lines.join('<br/>');
+  }
+
+  loadGraph();
+</script>
+</body>
+</html>
