@@ -1,16 +1,79 @@
 import os
-from langchain_ollama import ChatOllama
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-from app.db.neo4j import run_query
-from app.db import postgresql as pg
-from typing import AsyncGenerator
-import time
 import json
+import time
+from collections.abc import AsyncGenerator
 
-OLLAMA_MODEL  = os.getenv("OLLAMA_MODEL", "typhoon2")
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_ollama import ChatOllama
+
+from app.db import postgresql as pg
+from app.db.neo4j import run_query
+
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "typhoon2")
 GUEST_USER_ID = "00000000-0000-0000-0000-000000000001"
+RECENT_MESSAGE_LIMIT = 6
+LLM_NUM_PREDICT = 400
 
 _graph_cache: str | None = None
+
+
+def _unique_in_order(values: list[str], limit: int | None = None) -> list[str]:
+    seen: set[str] = set()
+    unique_values: list[str] = []
+
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        unique_values.append(value)
+
+        if limit and len(unique_values) >= limit:
+            break
+
+    return unique_values
+
+
+def _format_values(values: list[str], limit: int | None = None) -> str:
+    return ", ".join(_unique_in_order(values, limit=limit))
+
+
+def _sse_event(event_type: str, **payload: object) -> str:
+    return f"data: {json.dumps({'type': event_type, **payload}, ensure_ascii=False)}\n\n"
+
+
+def _build_chat_history(raw_context: list[dict]) -> list[HumanMessage | AIMessage]:
+    history: list[HumanMessage | AIMessage] = []
+
+    for message in raw_context:
+        content = message["content"]
+        if message["role"] == "user":
+            history.append(HumanMessage(content=content))
+        else:
+            history.append(AIMessage(content=content))
+
+    return history
+
+
+def _build_llm_messages(
+    question: str,
+    language: str,
+    graph_context: str,
+    raw_context: list[dict],
+    all_models: list[str],
+) -> list[SystemMessage | HumanMessage | AIMessage]:
+    already_recommended = extract_recommended_models(raw_context, all_models)
+
+    return [
+        SystemMessage(
+            content=build_system_prompt(
+                language,
+                graph_context,
+                already_recommended,
+            )
+        ),
+        *_build_chat_history(raw_context),
+        HumanMessage(content=question),
+    ]
 
 
 def get_graph_context() -> str:
@@ -33,29 +96,38 @@ def get_graph_context() -> str:
     if not rows:
         return "ไม่พบข้อมูลรถในฐานข้อมูล"
 
-    models: dict = {}
+    models: dict[str, dict[str, list[str]]] = {}
     for row in rows:
         model = row.get("model") or "?"
         if model not in models:
             models[model] = {"features": [], "use_case": [], "safety": [], "style": []}
-        rel1     = (row.get("rel1") or "").upper()
-        entity   = row.get("entity_name") or ""
+        rel1 = (row.get("rel1") or "").upper()
+        entity = row.get("entity_name") or ""
         semantic = row.get("semantic_name") or ""
-        label    = f"{entity} ({semantic})" if semantic else entity
+        label = f"{entity} ({semantic})" if semantic else entity
         if not label:
             continue
-        if "USE_CASE" in rel1: models[model]["use_case"].append(label)
-        elif "SAFETY" in rel1: models[model]["safety"].append(label)
-        elif "STYLE"  in rel1: models[model]["style"].append(label)
-        else:                  models[model]["features"].append(label)
+
+        if "USE_CASE" in rel1:
+            models[model]["use_case"].append(label)
+        elif "SAFETY" in rel1:
+            models[model]["safety"].append(label)
+        elif "STYLE" in rel1:
+            models[model]["style"].append(label)
+        else:
+            models[model]["features"].append(label)
 
     lines = []
-    for name, d in models.items():
+    for name, details in models.items():
         parts = [f"รุ่น: {name}"]
-        if d["use_case"]: parts.append(f"  เหมาะกับ: {', '.join(set(d['use_case']))}")
-        if d["style"]:    parts.append(f"  สไตล์: {', '.join(set(d['style']))}")
-        if d["safety"]:   parts.append(f"  ความปลอดภัย: {', '.join(set(d['safety']))}")
-        if d["features"]: parts.append(f"  คุณสมบัติ: {', '.join(set(d['features'][:6]))}")
+        if details["use_case"]:
+            parts.append(f"  เหมาะกับ: {_format_values(details['use_case'])}")
+        if details["style"]:
+            parts.append(f"  สไตล์: {_format_values(details['style'])}")
+        if details["safety"]:
+            parts.append(f"  ความปลอดภัย: {_format_values(details['safety'])}")
+        if details["features"]:
+            parts.append(f"  คุณสมบัติ: {_format_values(details['features'], limit=6)}")
         lines.append("\n".join(parts))
 
     _graph_cache = "ข้อมูลรถมอเตอร์ไซค์:\n\n" + "\n\n".join(lines)
@@ -72,18 +144,26 @@ def get_all_model_names() -> list[str]:
     return [r["name"] for r in rows if r.get("name")]
 
 
-def extract_recommended_models(history: list, all_models: list[str]) -> list[str]:
-    recommended = set()
-    for m in history:
-        if m["role"] == "assistant":
+def extract_recommended_models(history: list[dict], all_models: list[str]) -> list[str]:
+    recommended = []
+
+    for message in history:
+        if message["role"] == "assistant":
             for model_name in all_models:
-                if model_name.lower() in m["content"].lower():
-                    recommended.add(model_name)
-    return list(recommended)
+                if (
+                    model_name.lower() in message["content"].lower()
+                    and model_name not in recommended
+                ):
+                    recommended.append(model_name)
+
+    return recommended
 
 
-def build_system_prompt(language: str, graph_context: str,
-                        already_recommended: list[str]) -> str:
+def build_system_prompt(
+    language: str,
+    graph_context: str,
+    already_recommended: list[str],
+) -> str:
     already_str = ""
     if already_recommended:
         names = ", ".join(already_recommended)
@@ -132,58 +212,59 @@ Guidelines:
 -------------------"""
 
 
-async def stream_answer(question: str, language: str = "th",
-                        session_id: str = None,
-                        user_id: str = None) -> AsyncGenerator[str, None]:
+async def stream_answer(
+    question: str,
+    language: str = "th",
+    session_id: str | None = None,
+    user_id: str | None = None,
+) -> AsyncGenerator[str, None]:
     user_id = user_id or GUEST_USER_ID
 
     if not session_id:
         session_id = pg.create_session(user_id)
 
-    raw_context   = pg.load_recent_messages(session_id, limit=6)
+    raw_context = pg.load_recent_messages(session_id, limit=RECENT_MESSAGE_LIMIT)
+    pg.save_message(session_id, user_id, "user", question)
+
     graph_context = get_graph_context()
-    all_models    = get_all_model_names()
-    model_count   = graph_context.count("รุ่น:")
+    all_models = get_all_model_names()
+    model_count = graph_context.count("รุ่น:")
 
-    already_recommended = extract_recommended_models(raw_context, all_models)
+    llm_messages = _build_llm_messages(
+        question=question,
+        language=language,
+        graph_context=graph_context,
+        raw_context=raw_context,
+        all_models=all_models,
+    )
 
-    history = []
-    for m in raw_context:
-        if m["role"] == "user":
-            history.append(HumanMessage(content=m["content"]))
-        else:
-            history.append(AIMessage(content=m["content"]))
-
-    llm_messages = [
-        SystemMessage(content=build_system_prompt(
-            language, graph_context, already_recommended
-        )),
-        *history,
-        HumanMessage(content=question),
-    ]
-
-    llm = ChatOllama(model=OLLAMA_MODEL, temperature=0.7, num_predict=400)
+    llm = ChatOllama(model=OLLAMA_MODEL, temperature=0.7, num_predict=LLM_NUM_PREDICT)
 
     # ส่ง session_id และ model_count ก่อน
-    yield f"data: {json.dumps({'type': 'session', 'session_id': session_id, 'model_count': model_count})}\n\n"
+    yield _sse_event("session", session_id=session_id, model_count=model_count)
 
-    start_time  = time.time()
+    start_time = time.time()
     full_answer = ""
 
-    # Stream ทีละ token
-    async for chunk in llm.astream(llm_messages):
-        token = chunk.content
-        if token:
-            full_answer += token
-            yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+    try:
+        # Stream ทีละ token
+        async for chunk in llm.astream(llm_messages):
+            token = chunk.content
+            if token:
+                full_answer += token
+                yield _sse_event("token", token=token)
 
-    elapsed = round(time.time() - start_time, 1)
+        elapsed = round(time.time() - start_time, 1)
 
-    # บอก frontend ว่าเสร็จแล้ว พร้อมเวลาที่ใช้
-    yield f"data: {json.dumps({'type': 'done', 'elapsed': elapsed})}\n\n"
-
-    # บันทึกลง PostgreSQL
-    pg.save_message(session_id, user_id, "user",      question)
-    pg.save_message(session_id, user_id, "assistant", full_answer,
-                    rag_sources=[{"source": "neo4j", "model_count": model_count}])
-    pg.update_session_active(session_id)
+        # บอก frontend ว่าเสร็จแล้ว พร้อมเวลาที่ใช้
+        yield _sse_event("done", elapsed=elapsed)
+    finally:
+        if full_answer:
+            pg.save_message(
+                session_id,
+                user_id,
+                "assistant",
+                full_answer,
+                rag_sources=[{"source": "neo4j", "model_count": model_count}],
+            )
+        pg.update_session_active(session_id)
