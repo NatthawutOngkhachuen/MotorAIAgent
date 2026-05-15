@@ -1,0 +1,365 @@
+﻿method,user_id,true_item_id,rank
+Popularity Baseline,UID1,I002,9
+Popularity Baseline,UID2,I002,9
+Popularity Baseline,UID3,I002,9
+Popularity Baseline,UID4,I006,1
+Popularity Baseline,UID5,I003,2
+Popularity Baseline,UID6,I003,2
+Popularity Baseline,UID7,I001,8
+Popularity Baseline,UID8,I001,8
+Popularity Baseline,UID9,I001,8
+Popularity Baseline,UID10,I001,8
+Popularity Baseline,UID11,I003,2
+Popularity Baseline,UID12,I009,4
+Popularity Baseline,UID13,I005,3
+Popularity Baseline,UID14,I005,3
+Popularity Baseline,UID15,I009,4
+Popularity Baseline,UID16,I009,4
+Popularity Baseline,UID17,I003,2
+Popularity Baseline,UID18,I003,2
+Popularity Baseline,UID19,I003,2
+Popularity Baseline,UID20,I003,2
+Popularity Baseline,UID21,I003,2
+Popularity Baseline,UID22,I003,2
+Popularity Baseline,UID23,I003,2
+Popularity Baseline,UID24,I004,6
+Popularity Baseline,UID25,I004,6
+Popularity Baseline,UID26,I004,6
+Popularity Baseline,UID27,I004,6
+Popularity Baseline,UID28,I004,6
+Popularity Baseline,UID29,I004,6
+Popularity Baseline,UID30,I004,6
+Popularity Baseline,UID31,I004,6
+Popularity Baseline,UID32,I005,3
+Popularity Baseline,UID33,I005,3
+Popularity Baseline,UID34,I005,3
+Popularity Baseline,UID35,I005,3
+Popularity Baseline,UID36,I005,3
+Popularity Baseline,UID37,I005,3
+Popularity Baseline,UID38,I005,3
+Popularity Baseline,UID39,I005,3
+Popularity Baseline,UID40,I005,3
+Popularity Baseline,UID41,I005,3
+Popularity Baseline,UID42,I003,2
+Popularity Baseline,UID43,I006,1
+Popularity Baseline,UID44,I003,2
+Popularity Baseline,UID45,I003,2
+Popularity Baseline,UID46,I007,5
+Popularity Baseline,UID47,I003,2
+Popularity Baseline,UID48,I006,1
+Popularity Baseline,UID49,I006,1
+Popularity Baseline,UID50,I006,1
+Popularity Baseline,UID51,I006,1
+Popularity Baseline,UID52,I007,5
+Popularity Baseline,UID53,I007,5
+Popularity Baseline,UID54,I007,5
+Popularity Baseline,UID55,I007,5
+Popularity Baseline,UID56,I007,5
+Popularity Baseline,UID57,I007,5
+Popularity Baseline,UID58,I007,5
+Popularity Baseline,UID59,I007,5
+Popularity Baseline,UID60,I007,5
+Popularity Baseline,UID61,I006,1
+Popularity Baseline,UID62,I006,1
+Popularity Baseline,UID63,I006,1
+Popularity Baseline,UID64,I006,1
+Popularity Baseline,UID65,I006,1
+Popularity Baseline,UID66,I006,1
+Popularity Baseline,UID67,I003,2
+Popularity Baseline,UID68,I006,1
+Popularity Baseline,UID69,I008,7
+Popularity Baseline,UID70,I008,7
+Popularity Baseline,UID71,I008,7
+Popularity Baseline,UID72,I008,7
+Popularity Baseline,UID73,I008,7
+Popularity Baseline,UID74,I008,7
+Popularity Baseline,UID75,I003,2
+Popularity Baseline,UID76,I004,6
+Popularity Baseline,UID77,I009,4
+Popularity Baseline,UID78,I009,4
+Popularity Baseline,UID79,I009,4
+Popularity Baseline,UID80,I009,4
+Popularity Baseline,UID81,I009,4
+Popularity Baseline,UID82,I009,4
+Popularity Baseline,UID83,I009,4
+Popularity Baseline,UID84,I009,4
+Popularity Baseline,UID85,I009,4
+Popularity Baseline,UID86,I006,1
+Popularity Baseline,UID87,I006,1
+Popularity Baseline,UID88,I006,1
+Popularity Baseline,UID89,I006,1
+Popularity Baseline,UID90,I008,7
+Popularity Baseline,UID91,I008,7
+User-Based Proxy Similarity,UID1,I002,9
+User-Based Proxy Similarity,UID2,I002,9
+User-Based Proxy Similarity,UID3,I002,9
+User-Based Proxy Similarity,UID4,I006,2
+User-Based Proxy Similarity,UID5,I003,2
+User-Based Proxy Similarity,UID6,I003,2
+User-Based Proxy Similarity,UID7,I001,9
+User-Based Proxy Similarity,UID8,I001,9
+User-Based Proxy Similarity,UID9,I001,9
+User-Based Proxy Similarity,UID10,I001,8
+User-Based Proxy Similarity,UID11,I003,2
+User-Based Proxy Similarity,UID12,I009,6
+User-Based Proxy Similarity,UID13,I005,6
+User-Based Proxy Similarity,UID14,I005,4
+User-Based Proxy Similarity,UID15,I009,4
+User-Based Proxy Similarity,UID16,I009,6
+User-Based Proxy Similarity,UID17,I003,2
+User-Based Proxy Similarity,UID18,I003,2
+User-Based Proxy Similarity,UID19,I003,2
+User-Based Proxy Similarity,UID20,I003,2
+User-Based Proxy Similarity,UID21,I003,2
+User-Based Proxy Similarity,UID22,I003,2
+User-Based Proxy Similarity,UID23,I003,2
+User-Based Proxy Similarity,UID24,I004,7
+User-Based Proxy Similarity,UID25,I004,6
+User-Based Proxy Similarity,UID26,I004,7
+User-Based Proxy Similarity,UID27,I004,7
+User-Based Proxy Similarity,UID28,I004,6
+User-Based Proxy Similarity,UID29,I004,7
+User-Based Proxy Similarity,UID30,I004,6
+User-Based Proxy Similarity,UID31,I004,6
+User-Based Proxy Similarity,UID32,I005,3
+User-Based Proxy Similarity,UID33,I005,2
+User-Based Proxy Similarity,UID34,I005,3
+User-Based Proxy Similarity,UID35,I005,3
+User-Based Proxy Similarity,UID36,I005,4
+User-Based Proxy Similarity,UID37,I005,3
+User-Based Proxy Similarity,UID38,I005,3
+User-Based Proxy Similarity,UID39,I005,4
+User-Based Proxy Similarity,UID40,I005,3
+User-Based Proxy Similarity,UID41,I005,6
+User-Based Proxy Similarity,UID42,I003,2
+User-Based Proxy Similarity,UID43,I006,2
+User-Based Proxy Similarity,UID44,I003,2
+User-Based Proxy Similarity,UID45,I003,2
+User-Based Proxy Similarity,UID46,I007,6
+User-Based Proxy Similarity,UID47,I003,2
+User-Based Proxy Similarity,UID48,I006,2
+User-Based Proxy Similarity,UID49,I006,2
+User-Based Proxy Similarity,UID50,I006,1
+User-Based Proxy Similarity,UID51,I006,2
+User-Based Proxy Similarity,UID52,I007,7
+User-Based Proxy Similarity,UID53,I007,7
+User-Based Proxy Similarity,UID54,I007,7
+User-Based Proxy Similarity,UID55,I007,6
+User-Based Proxy Similarity,UID56,I007,6
+User-Based Proxy Similarity,UID57,I007,6
+User-Based Proxy Similarity,UID58,I007,6
+User-Based Proxy Similarity,UID59,I007,5
+User-Based Proxy Similarity,UID60,I007,6
+User-Based Proxy Similarity,UID61,I006,2
+User-Based Proxy Similarity,UID62,I006,2
+User-Based Proxy Similarity,UID63,I006,2
+User-Based Proxy Similarity,UID64,I006,2
+User-Based Proxy Similarity,UID65,I006,2
+User-Based Proxy Similarity,UID66,I006,2
+User-Based Proxy Similarity,UID67,I003,2
+User-Based Proxy Similarity,UID68,I006,2
+User-Based Proxy Similarity,UID69,I008,6
+User-Based Proxy Similarity,UID70,I008,7
+User-Based Proxy Similarity,UID71,I008,6
+User-Based Proxy Similarity,UID72,I008,5
+User-Based Proxy Similarity,UID73,I008,6
+User-Based Proxy Similarity,UID74,I008,7
+User-Based Proxy Similarity,UID75,I003,2
+User-Based Proxy Similarity,UID76,I004,6
+User-Based Proxy Similarity,UID77,I009,3
+User-Based Proxy Similarity,UID78,I009,5
+User-Based Proxy Similarity,UID79,I009,3
+User-Based Proxy Similarity,UID80,I009,2
+User-Based Proxy Similarity,UID81,I009,3
+User-Based Proxy Similarity,UID82,I009,4
+User-Based Proxy Similarity,UID83,I009,2
+User-Based Proxy Similarity,UID84,I009,1
+User-Based Proxy Similarity,UID85,I009,3
+User-Based Proxy Similarity,UID86,I006,3
+User-Based Proxy Similarity,UID87,I006,1
+User-Based Proxy Similarity,UID88,I006,3
+User-Based Proxy Similarity,UID89,I006,2
+User-Based Proxy Similarity,UID90,I008,6
+User-Based Proxy Similarity,UID91,I008,7
+Item-Based Feature Fit,UID1,I002,2
+Item-Based Feature Fit,UID2,I002,1
+Item-Based Feature Fit,UID3,I002,2
+Item-Based Feature Fit,UID4,I006,6
+Item-Based Feature Fit,UID5,I003,3
+Item-Based Feature Fit,UID6,I003,1
+Item-Based Feature Fit,UID7,I001,1
+Item-Based Feature Fit,UID8,I001,1
+Item-Based Feature Fit,UID9,I001,1
+Item-Based Feature Fit,UID10,I001,1
+Item-Based Feature Fit,UID11,I003,1
+Item-Based Feature Fit,UID12,I009,9
+Item-Based Feature Fit,UID13,I005,4
+Item-Based Feature Fit,UID14,I005,3
+Item-Based Feature Fit,UID15,I009,4
+Item-Based Feature Fit,UID16,I009,8
+Item-Based Feature Fit,UID17,I003,3
+Item-Based Feature Fit,UID18,I003,2
+Item-Based Feature Fit,UID19,I003,8
+Item-Based Feature Fit,UID20,I003,1
+Item-Based Feature Fit,UID21,I003,1
+Item-Based Feature Fit,UID22,I003,1
+Item-Based Feature Fit,UID23,I003,2
+Item-Based Feature Fit,UID24,I004,1
+Item-Based Feature Fit,UID25,I004,5
+Item-Based Feature Fit,UID26,I004,7
+Item-Based Feature Fit,UID27,I004,1
+Item-Based Feature Fit,UID28,I004,5
+Item-Based Feature Fit,UID29,I004,1
+Item-Based Feature Fit,UID30,I004,3
+Item-Based Feature Fit,UID31,I004,3
+Item-Based Feature Fit,UID32,I005,3
+Item-Based Feature Fit,UID33,I005,3
+Item-Based Feature Fit,UID34,I005,2
+Item-Based Feature Fit,UID35,I005,5
+Item-Based Feature Fit,UID36,I005,3
+Item-Based Feature Fit,UID37,I005,2
+Item-Based Feature Fit,UID38,I005,3
+Item-Based Feature Fit,UID39,I005,6
+Item-Based Feature Fit,UID40,I005,3
+Item-Based Feature Fit,UID41,I005,3
+Item-Based Feature Fit,UID42,I003,9
+Item-Based Feature Fit,UID43,I006,3
+Item-Based Feature Fit,UID44,I003,9
+Item-Based Feature Fit,UID45,I003,5
+Item-Based Feature Fit,UID46,I007,9
+Item-Based Feature Fit,UID47,I003,1
+Item-Based Feature Fit,UID48,I006,3
+Item-Based Feature Fit,UID49,I006,4
+Item-Based Feature Fit,UID50,I006,7
+Item-Based Feature Fit,UID51,I006,3
+Item-Based Feature Fit,UID52,I007,8
+Item-Based Feature Fit,UID53,I007,8
+Item-Based Feature Fit,UID54,I007,8
+Item-Based Feature Fit,UID55,I007,2
+Item-Based Feature Fit,UID56,I007,7
+Item-Based Feature Fit,UID57,I007,7
+Item-Based Feature Fit,UID58,I007,7
+Item-Based Feature Fit,UID59,I007,5
+Item-Based Feature Fit,UID60,I007,2
+Item-Based Feature Fit,UID61,I006,6
+Item-Based Feature Fit,UID62,I006,3
+Item-Based Feature Fit,UID63,I006,4
+Item-Based Feature Fit,UID64,I006,4
+Item-Based Feature Fit,UID65,I006,4
+Item-Based Feature Fit,UID66,I006,4
+Item-Based Feature Fit,UID67,I003,3
+Item-Based Feature Fit,UID68,I006,6
+Item-Based Feature Fit,UID69,I008,2
+Item-Based Feature Fit,UID70,I008,2
+Item-Based Feature Fit,UID71,I008,8
+Item-Based Feature Fit,UID72,I008,2
+Item-Based Feature Fit,UID73,I008,2
+Item-Based Feature Fit,UID74,I008,7
+Item-Based Feature Fit,UID75,I003,5
+Item-Based Feature Fit,UID76,I004,7
+Item-Based Feature Fit,UID77,I009,3
+Item-Based Feature Fit,UID78,I009,7
+Item-Based Feature Fit,UID79,I009,5
+Item-Based Feature Fit,UID80,I009,3
+Item-Based Feature Fit,UID81,I009,4
+Item-Based Feature Fit,UID82,I009,9
+Item-Based Feature Fit,UID83,I009,4
+Item-Based Feature Fit,UID84,I009,3
+Item-Based Feature Fit,UID85,I009,4
+Item-Based Feature Fit,UID86,I006,5
+Item-Based Feature Fit,UID87,I006,5
+Item-Based Feature Fit,UID88,I006,5
+Item-Based Feature Fit,UID89,I006,3
+Item-Based Feature Fit,UID90,I008,8
+Item-Based Feature Fit,UID91,I008,3
+NCF + Negative Sampling,UID1,I002,1
+NCF + Negative Sampling,UID2,I002,9
+NCF + Negative Sampling,UID3,I002,1
+NCF + Negative Sampling,UID4,I006,1
+NCF + Negative Sampling,UID5,I003,1
+NCF + Negative Sampling,UID6,I003,1
+NCF + Negative Sampling,UID7,I001,1
+NCF + Negative Sampling,UID8,I001,7
+NCF + Negative Sampling,UID9,I001,1
+NCF + Negative Sampling,UID10,I001,1
+NCF + Negative Sampling,UID11,I003,1
+NCF + Negative Sampling,UID12,I009,2
+NCF + Negative Sampling,UID13,I005,4
+NCF + Negative Sampling,UID14,I005,1
+NCF + Negative Sampling,UID15,I009,1
+NCF + Negative Sampling,UID16,I009,1
+NCF + Negative Sampling,UID17,I003,1
+NCF + Negative Sampling,UID18,I003,1
+NCF + Negative Sampling,UID19,I003,1
+NCF + Negative Sampling,UID20,I003,1
+NCF + Negative Sampling,UID21,I003,1
+NCF + Negative Sampling,UID22,I003,1
+NCF + Negative Sampling,UID23,I003,1
+NCF + Negative Sampling,UID24,I004,1
+NCF + Negative Sampling,UID25,I004,1
+NCF + Negative Sampling,UID26,I004,1
+NCF + Negative Sampling,UID27,I004,1
+NCF + Negative Sampling,UID28,I004,1
+NCF + Negative Sampling,UID29,I004,1
+NCF + Negative Sampling,UID30,I004,1
+NCF + Negative Sampling,UID31,I004,1
+NCF + Negative Sampling,UID32,I005,1
+NCF + Negative Sampling,UID33,I005,1
+NCF + Negative Sampling,UID34,I005,4
+NCF + Negative Sampling,UID35,I005,5
+NCF + Negative Sampling,UID36,I005,6
+NCF + Negative Sampling,UID37,I005,1
+NCF + Negative Sampling,UID38,I005,1
+NCF + Negative Sampling,UID39,I005,1
+NCF + Negative Sampling,UID40,I005,1
+NCF + Negative Sampling,UID41,I005,1
+NCF + Negative Sampling,UID42,I003,1
+NCF + Negative Sampling,UID43,I006,1
+NCF + Negative Sampling,UID44,I003,1
+NCF + Negative Sampling,UID45,I003,1
+NCF + Negative Sampling,UID46,I007,1
+NCF + Negative Sampling,UID47,I003,1
+NCF + Negative Sampling,UID48,I006,1
+NCF + Negative Sampling,UID49,I006,1
+NCF + Negative Sampling,UID50,I006,1
+NCF + Negative Sampling,UID51,I006,4
+NCF + Negative Sampling,UID52,I007,1
+NCF + Negative Sampling,UID53,I007,7
+NCF + Negative Sampling,UID54,I007,1
+NCF + Negative Sampling,UID55,I007,1
+NCF + Negative Sampling,UID56,I007,6
+NCF + Negative Sampling,UID57,I007,1
+NCF + Negative Sampling,UID58,I007,1
+NCF + Negative Sampling,UID59,I007,1
+NCF + Negative Sampling,UID60,I007,1
+NCF + Negative Sampling,UID61,I006,1
+NCF + Negative Sampling,UID62,I006,1
+NCF + Negative Sampling,UID63,I006,1
+NCF + Negative Sampling,UID64,I006,1
+NCF + Negative Sampling,UID65,I006,1
+NCF + Negative Sampling,UID66,I006,1
+NCF + Negative Sampling,UID67,I003,1
+NCF + Negative Sampling,UID68,I006,3
+NCF + Negative Sampling,UID69,I008,1
+NCF + Negative Sampling,UID70,I008,9
+NCF + Negative Sampling,UID71,I008,1
+NCF + Negative Sampling,UID72,I008,1
+NCF + Negative Sampling,UID73,I008,1
+NCF + Negative Sampling,UID74,I008,9
+NCF + Negative Sampling,UID75,I003,1
+NCF + Negative Sampling,UID76,I004,1
+NCF + Negative Sampling,UID77,I009,1
+NCF + Negative Sampling,UID78,I009,1
+NCF + Negative Sampling,UID79,I009,1
+NCF + Negative Sampling,UID80,I009,1
+NCF + Negative Sampling,UID81,I009,3
+NCF + Negative Sampling,UID82,I009,1
+NCF + Negative Sampling,UID83,I009,1
+NCF + Negative Sampling,UID84,I009,1
+NCF + Negative Sampling,UID85,I009,1
+NCF + Negative Sampling,UID86,I006,1
+NCF + Negative Sampling,UID87,I006,1
+NCF + Negative Sampling,UID88,I006,1
+NCF + Negative Sampling,UID89,I006,2
+NCF + Negative Sampling,UID90,I008,1
+NCF + Negative Sampling,UID91,I008,1

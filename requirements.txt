@@ -6,3 +6,8 @@ psycopg2-binary
 redis
 langchain-ollama
 langchain-core
+numpy
+pandas
+scikit-learn
+matplotlib
+torch

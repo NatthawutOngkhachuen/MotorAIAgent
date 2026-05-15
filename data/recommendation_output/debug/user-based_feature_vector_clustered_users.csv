@@ -1,0 +1,92 @@
+﻿user_id,mapped_model,age_group,gender,usage_type,style,performance,comfort,fuel_saving,cluster,pca_x,pca_y
+UID1,ADV 160,teen,male,unknown,sporty,unknown,unknown,unknown,3,0.5238163615917678,1.0330950145301006
+UID2,ADV 160,teen,male,daily,sporty,high,high,unknown,4,-1.1718457947029794,0.5097717937875392
+UID3,ADV 160,adult,female,unknown,sporty,high,unknown,unknown,1,-0.33721953758875434,0.6371307364660765
+UID4,N-MAX,adult,male,city,sporty,high,unknown,unknown,4,-1.233612471878933,0.8312238880822588
+UID5,Forza 350,teen,male,unknown,unknown,unknown,unknown,unknown,3,0.8517440103586605,0.4820043677547456
+UID6,Forza 350,adult,male,long_distance,premium,high,high,unknown,5,-1.7853750459520734,-0.5280855016013287
+UID7,Click 160,teen,female,unknown,unknown,unknown,unknown,unknown,2,1.3571483995181455,-0.006326609883312742
+UID8,Click 160,young_adult,male,unknown,sporty,high,unknown,unknown,4,-0.704794011024585,1.1491697527786997
+UID9,Click 160,adult,male,city,sporty,unknown,unknown,unknown,1,-0.39523356546798766,0.3074938016461502
+UID10,Click 160,young_adult,female,long_distance,sporty,high,unknown,true,1,-0.7055495348770007,0.03851690139383249
+UID11,Forza 350,teen,male,unknown,sporty,high,unknown,unknown,4,-0.31456254481917795,1.5568251009662106
+UID12,Wave 125i,adult,male,long_distance,premium,high,high,unknown,5,-1.785375045952073,-0.5280855016013285
+UID13,Grand Filano Hybrid,teen,male,unknown,unknown,unknown,high,unknown,0,0.41585768557815783,-0.19750076387195714
+UID14,Grand Filano Hybrid,adult,female,city,premium,unknown,unknown,unknown,1,0.062175416928780376,-0.8562952851953868
+UID15,Wave 125i,adult,female,unknown,beauty,unknown,unknown,unknown,2,0.8600730324767693,-0.3538158006045244
+UID16,Wave 125i,adult,female,daily,unknown,unknown,high,unknown,0,-0.028196232294717835,-1.4847433039240592
+UID17,Forza 350,teen,male,unknown,sporty,high,unknown,unknown,4,-0.31456254481917745,1.556825100966211
+UID18,Forza 350,young_adult,male,long_distance,unknown,unknown,unknown,unknown,3,0.0026431564926411677,-0.22423495530805035
+UID19,Forza 350,teen,female,unknown,sporty,unknown,unknown,unknown,2,1.0292207507512539,0.544764036892042
+UID20,Forza 350,young_adult,male,long_distance,premium,high,high,unknown,5,-1.6475451302284179,-0.504377462926765
+UID21,Forza 350,adult,male,delivery,premium,high,high,unknown,5,-1.6743831517973091,-0.4804955333634006
+UID22,Forza 350,adult,male,unknown,premium,high,high,unknown,5,-1.326505658291461,-0.22950152672604476
+UID23,Forza 350,adult,male,unknown,sporty,high,unknown,unknown,4,-0.84262392674824,1.1254617141041356
+UID24,Giorno+,teen,female,unknown,beauty,unknown,unknown,unknown,2,1.3881344144058312,0.07754758625755162
+UID25,Giorno+,young_adult,female,city,premium,high,high,unknown,5,-1.0742598985390135,-0.9883622917114144
+UID26,Giorno+,teen,male,unknown,premium,unknown,high,unknown,0,0.0399346300485474,-0.32186822630007966
+UID27,Giorno+,teen,female,unknown,beauty,unknown,unknown,unknown,2,1.3881344144058312,0.07754758625755162
+UID28,Giorno+,adult,male,daily,sporty,unknown,unknown,unknown,1,-0.4256419454405929,0.23418345211605682
+UID29,Giorno+,adult,female,daily,beauty,unknown,unknown,unknown,1,0.43867610737347035,-0.7213639761564925
+UID30,Giorno+,young_adult,male,daily,beauty,unknown,high,unknown,3,-0.3647846908428632,-0.8888300914705733
+UID31,Giorno+,adult,male,daily,beauty,unknown,high,unknown,3,-0.5026146065665185,-0.9125381301451366
+UID32,Grand Filano Hybrid,teen,male,unknown,premium,unknown,unknown,true,3,0.42853042947775943,0.03389900645509863
+UID33,Grand Filano Hybrid,adult,female,city,premium,high,unknown,true,1,-0.8234940148334566,-0.6563030976308
+UID34,Grand Filano Hybrid,teen,male,unknown,beauty,unknown,unknown,true,3,0.8354394998950546,0.2421406650240854
+UID35,Grand Filano Hybrid,adult,หญิง,daily,premium,unknown,unknown,true,1,-0.26592636962874283,-1.0214800267309092
+UID36,Grand Filano Hybrid,adult,male,unknown,premium,unknown,high,unknown,0,-0.48812675188051513,-0.7532316131621548
+UID37,Grand Filano Hybrid,adult,female,unknown,beauty,unknown,high,true,0,0.37689618234497535,-1.357058831102751
+UID38,Grand Filano Hybrid,teen,female,unknown,premium,unknown,high,true,0,0.49804849385674266,-1.1339371028096616
+UID39,Grand Filano Hybrid,young_adult,female,city,sporty,high,unknown,true,1,-0.6376686923470832,0.042863050247241054
+UID40,Grand Filano Hybrid,young_adult,female,unknown,premium,unknown,high,true,0,0.10781702765133491,-1.541592450997174
+UID41,Grand Filano Hybrid,adult,male,daily,beauty,unknown,unknown,unknown,3,-0.06672828178601571,-0.233032998518434
+UID42,Forza 350,teen,female,unknown,beauty,unknown,unknown,unknown,2,1.3881344144058312,0.07754758625755162
+UID43,N-MAX,young_adult,male,unknown,sporty,unknown,unknown,unknown,3,0.13358489538636126,0.625439666342589
+UID44,Forza 350,teen,male,unknown,beauty,unknown,unknown,unknown,3,0.8827300252463455,0.5658785638956098
+UID45,Forza 350,teen,unknown,unknown,beauty,unknown,unknown,unknown,2,1.1576093420167826,0.3589684166874626
+UID46,PCX 160,adult,female,daily,sporty,high,unknown,unknown,1,-0.7586164626920529,0.2695825609141086
+UID47,Forza 350,teen,male,unknown,sporty,high,unknown,unknown,4,-0.3145625448191778,1.5568251009662113
+UID48,N-MAX,adult,male,unknown,unknown,unknown,high,unknown,0,-0.11220369635090502,-0.6288641507340321
+UID49,N-MAX,teen,male,daily,sporty,high,unknown,unknown,4,-0.7359594699224765,1.1892769254142426
+UID50,N-MAX,young_adult,male,city,unknown,high,high,unknown,5,-1.203741232168889,-0.3756638516452342
+UID51,N-MAX,young_adult,male,long_distance,premium,high,high,unknown,5,-1.6475451302284179,-0.504377462926765
+UID52,PCX 160,teen,female,unknown,beauty,unknown,unknown,unknown,2,1.3881344144058312,0.07754758625755162
+UID53,PCX 160,young_adult,female,unknown,beauty,unknown,unknown,unknown,2,0.9979029482004239,-0.3301077619299604
+UID54,PCX 160,young_adult,male,unknown,beauty,unknown,unknown,unknown,3,0.49249855904093837,0.15822321570809803
+UID55,PCX 160,teen,female,unknown,premium,unknown,high,unknown,0,0.5453390192080334,-0.8101992039381372
+UID56,PCX 160,teen,male,unknown,sporty,high,high,unknown,4,-0.7504488695996807,0.8773199693395082
+UID57,PCX 160,adult,female,daily,sporty,high,unknown,unknown,1,-0.7586164626920529,0.2695825609141086
+UID58,PCX 160,adult,female,daily,sporty,unknown,high,unknown,1,-0.3561238810616097,-0.9336526571487043
+UID59,PCX 160,adult,male,unknown,sporty,unknown,unknown,true,3,-0.051535545688584955,0.2779937287965009
+UID60,PCX 160,young_adult,male,unknown,premium,high,high,unknown,5,-1.1886757425678056,-0.20579348805148096
+UID61,N-MAX,teen,male,unknown,unknown,unknown,unknown,unknown,3,0.8517440103586602,0.48200436775474553
+UID62,N-MAX,teen,female,unknown,sporty,unknown,unknown,unknown,2,1.0292207507512543,0.5447640368920427
+UID63,N-MAX,teen,male,unknown,sporty,high,unknown,unknown,4,-0.3145625448191778,1.5568251009662113
+UID64,N-MAX,teen,male,unknown,sporty,high,unknown,unknown,4,-0.3145625448191778,1.5568251009662113
+UID65,N-MAX,teen,unknown,unknown,sporty,high,unknown,unknown,4,-0.0396832280487404,1.349914953758064
+UID66,N-MAX,teen,male,unknown,sporty,high,unknown,unknown,4,-0.3145625448191778,1.5568251009662113
+UID67,Forza 350,teen,female,unknown,unknown,unknown,unknown,unknown,2,1.357148399518146,-0.006326609883312459
+UID68,N-MAX,teen,male,daily,unknown,unknown,unknown,unknown,3,0.4303470852553614,0.11445619220277671
+UID69,Scoopy i,teen,female,unknown,unknown,unknown,unknown,unknown,2,1.357148399518146,-0.006326609883312459
+UID70,Scoopy i,teen,female,unknown,beauty,unknown,unknown,unknown,2,1.3881344144058312,0.07754758625755162
+UID71,Scoopy i,teen,female,unknown,unknown,unknown,high,unknown,0,0.9212620747376432,-0.6858317415100149
+UID72,Scoopy i,young_adult,female,city,unknown,unknown,unknown,unknown,2,0.5759283881820456,-0.7082197840926999
+UID73,Scoopy i,young_adult,male,unknown,unknown,unknown,unknown,unknown,3,0.46151254415325305,0.07434901956723382
+UID74,Scoopy i,teen,female,unknown,unknown,unknown,high,unknown,0,0.9212620747376432,-0.6858317415100149
+UID75,Forza 350,teen,male,unknown,beauty,unknown,unknown,unknown,3,0.8827300252463455,0.5658785638956098
+UID76,Giorno+,teen,female,daily,sporty,high,high,unknown,1,-0.6664414055434937,0.02144081614948185
+UID77,Wave 125i,young_adult,female,unknown,unknown,unknown,unknown,unknown,2,0.9669169333127388,-0.4139819580708245
+UID78,Wave 125i,teen,female,unknown,sporty,high,unknown,unknown,4,0.1908418443403081,1.068494123328153
+UID79,Wave 125i,young_adult,male,city,beauty,unknown,unknown,true,3,0.05421948855895436,-0.45975250918530197
+UID80,Wave 125i,young_adult,male,daily,unknown,unknown,unknown,true,3,-0.007174906301336584,-0.616937054856259
+UID81,Wave 125i,adult,female,unknown,sporty,unknown,unknown,true,1,0.4538688434709011,-0.2103372488415573
+UID82,Wave 125i,adult,male,unknown,sporty,high,unknown,unknown,4,-0.84262392674824,1.1254617141041356
+UID83,Wave 125i,adult,male,daily,sporty,high,unknown,true,1,-1.3113113772028298,0.43417563968064266
+UID84,Wave 125i,adult,female,daily,unknown,unknown,unknown,true,1,0.3603995671344941,-1.128976071168881
+UID85,Wave 125i,young_adult,male,daily,premium,unknown,unknown,unknown,3,-0.33580743647965594,-0.417566618412857
+UID86,N-MAX,adult,male,long_distance,premium,high,high,true,5,-1.8326655713033635,-0.851823400472853
+UID87,N-MAX,young_adult,female,daily,premium,unknown,high,unknown,0,-0.266289372100673,-1.5854027276776184
+UID88,N-MAX,teen,female,unknown,unknown,unknown,high,true,0,0.8739715493863522,-1.0095696403815393
+UID89,N-MAX,young_adult,male,unknown,sporty,unknown,unknown,unknown,3,0.1335848953863609,0.6254396663425891
+UID90,Scoopy i,teen,female,unknown,unknown,unknown,unknown,unknown,2,1.357148399518146,-0.0063266098833123915
+UID91,Scoopy i,teen,male,unknown,beauty,unknown,unknown,unknown,3,0.8827300252463456,0.5658785638956099
