@@ -303,7 +303,7 @@
       const body = { question, language: currentLang };
       if (currentSession) body.session_id = currentSession;
 
-      const res     = await fetch('/api/v1/chat', {
+      const res     = await fetch('/api/v1/recommendation/item-based/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(body),

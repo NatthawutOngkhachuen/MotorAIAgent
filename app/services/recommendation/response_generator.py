@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any
+from typing import Any, AsyncGenerator
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -59,7 +59,7 @@ class ResponseGenerator:
         graph_evidence: list[dict[str, Any]],
     ) -> str:
         """
-        สร้างคำตอบสุดท้ายให้ user
+        สร้างคำตอบสุดท้ายให้ user (แบบ blocking — ใช้สำหรับ non-streaming)
 
         out_of_catalog:
             ตอบ template ทันที ไม่เรียก LLM
@@ -98,6 +98,54 @@ class ResponseGenerator:
         )
 
         return response.content.strip()
+
+    async def astream(
+        self,
+        user_message: str,
+        route_result: RecommendationRouteResult,
+        graph_evidence: list[dict[str, Any]],
+    ) -> AsyncGenerator[str, None]:
+        """
+        Stream คำตอบทีละ token จาก LLM จริงๆ (ใช้แทน generate() สำหรับ streaming)
+
+        out_of_catalog / price_lookup:
+            yield ข้อความ template ทีเดียว ไม่เรียก LLM
+
+        route อื่น:
+            ใช้ llm.astream() เพื่อ yield ทีละ token จาก Ollama
+        """
+
+        if route_result.route == "out_of_catalog":
+            yield self._generate_out_of_catalog_response(route_result)
+            return
+
+        if route_result.response_type == "price_lookup":
+            yield self._generate_price_lookup_response(route_result)
+            return
+
+        if not graph_evidence:
+            yield (
+                "ตอนนี้ระบบยังไม่พบข้อมูลรถที่เกี่ยวข้องในฐานข้อมูลครับ "
+                "จึงยังไม่สามารถสรุปคำแนะนำจาก GraphRAG ได้"
+            )
+            return
+
+        system_prompt = self._build_system_prompt()
+        human_prompt = self._build_human_prompt(
+            user_message=user_message,
+            route_result=route_result,
+            graph_evidence=graph_evidence,
+        )
+
+        # ✅ stream ทีละ token จาก Ollama จริงๆ
+        async for chunk in self.llm.astream(
+            [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=human_prompt),
+            ]
+        ):
+            if chunk.content:
+                yield chunk.content
 
     def _build_system_prompt(self) -> str:
         return """

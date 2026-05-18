@@ -16,34 +16,13 @@ from app.services.recommendation.router import RecommendationRouter
 GUEST_USER_ID = "00000000-0000-0000-0000-000000000001"
 
 
-def _chunk_text(text: str, chunk_size: int = 24) -> list[str]:
-
-    if not text:
-        return []
-
-    chunks = []
-    current = ""
-
-    for char in text:
-        current += char
-
-        if len(current) >= chunk_size or char in ["\n", ".", "!", "?", "ครับ"]:
-            chunks.append(current)
-            current = ""
-
-    if current:
-        chunks.append(current)
-
-    return chunks
-
-
 async def stream_recommendation_answer(
     question: str,
     language: str = "th",
     session_id: str | None = None,
     user_id: str | None = None,
 ) -> AsyncGenerator[str, None]:
-    
+
     user_id = user_id or GUEST_USER_ID
 
     if not session_id:
@@ -55,7 +34,7 @@ async def stream_recommendation_answer(
 
     route_result = None
     graph_evidence = []
-    answer = ""
+    full_answer = ""
 
     try:
 
@@ -75,12 +54,6 @@ async def stream_recommendation_answer(
                 item_ids=route_result.graph_item_ids,
             )
 
-        answer = response_generator.generate(
-            user_message=question,
-            route_result=route_result,
-            graph_evidence=graph_evidence,
-        )
-
         metadata = {
             "type": "metadata",
             "route": route_result.route,
@@ -91,7 +64,12 @@ async def stream_recommendation_answer(
         }
         yield f"data: {json.dumps(metadata, ensure_ascii=False)}\n\n"
 
-        for token in _chunk_text(answer):
+        async for token in response_generator.astream(
+            user_message=question,
+            route_result=route_result,
+            graph_evidence=graph_evidence,
+        ):
+            full_answer += token
             yield f"data: {json.dumps({'type': 'token', 'token': token}, ensure_ascii=False)}\n\n"
 
         elapsed = round(time.time() - start_time, 1)
@@ -121,7 +99,7 @@ async def stream_recommendation_answer(
             session_id,
             user_id,
             "assistant",
-            answer,
+            full_answer,
             rag_sources=rag_sources,
         )
         update_session_active(session_id)

@@ -3,7 +3,7 @@ from fastapi.responses import StreamingResponse
 from app.api.V1.models import SearchRequest, ChatRequest
 from app.services.query_service import search_by_keyword, get_full_graph
 from app.services.chat_service import stream_answer, clear_graph_cache
-from app.db import postgresql as pg
+from app.db import chat_repository as pg
 
 router = APIRouter()
 

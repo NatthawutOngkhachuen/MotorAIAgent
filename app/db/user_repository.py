@@ -17,3 +17,4 @@ def find_user_by_id(user_id: str):
             return cur.fetchone()
     finally:
         release_connection(conn)
+
