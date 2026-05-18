@@ -3,6 +3,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.V1.endpoints import router
+from app.api.V1.auth_route import router as auth_router
+from app.api.V1.recommendation import router as recommendation_chat_router
 
 app = FastAPI(title="Motor AI Agent")
 
@@ -15,6 +17,8 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api/v1", tags=["search"])
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(recommendation_chat_router, prefix="/api/v1")
 
 @app.get("/graph")
 async def graph_page():

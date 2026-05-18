@@ -2,7 +2,12 @@ import os
 from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from app.db.neo4j import run_query
-from app.db import postgresql as pg
+from app.db.chat_repository import (
+    create_session,
+    load_recent_messages,
+    save_message,
+    update_session_active,
+)
 from typing import AsyncGenerator
 import time
 import json
@@ -132,15 +137,18 @@ Guidelines:
 -------------------"""
 
 
-async def stream_answer(question: str, language: str = "th",
+async def stream_answer(question: str,
+                        language: str = "th",
                         session_id: str = None,
-                        user_id: str = None) -> AsyncGenerator[str, None]:
+                        user_id: str = None
+                        ) -> AsyncGenerator[str, None]: 
     user_id = user_id or GUEST_USER_ID
 
     if not session_id:
-        session_id = pg.create_session(user_id)
+        session_id = create_session(user_id)
+        
 
-    raw_context   = pg.load_recent_messages(session_id, limit=6)
+    raw_context   = load_recent_messages(session_id, limit=6)
     graph_context = get_graph_context()
     all_models    = get_all_model_names()
     model_count   = graph_context.count("รุ่น:")
@@ -183,7 +191,10 @@ async def stream_answer(question: str, language: str = "th",
     yield f"data: {json.dumps({'type': 'done', 'elapsed': elapsed})}\n\n"
 
     # บันทึกลง PostgreSQL
-    pg.save_message(session_id, user_id, "user",      question)
-    pg.save_message(session_id, user_id, "assistant", full_answer,
-                    rag_sources=[{"source": "neo4j", "model_count": model_count}])
-    pg.update_session_active(session_id)
+    save_message(session_id, user_id, "user", question)
+    save_message(session_id,
+                user_id, 
+                "assistant",
+                full_answer,
+                rag_sources=[{"source": "neo4j", "model_count": model_count}])
+    update_session_active(session_id)

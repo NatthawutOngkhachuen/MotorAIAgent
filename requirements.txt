@@ -6,3 +6,11 @@ psycopg2-binary
 redis
 langchain-ollama
 langchain-core
+numpy
+pandas
+scikit-learn
+matplotlib
+torch
+passlib[bcrypt]
+bcrypt==4.0.1
+psycopg2-binary

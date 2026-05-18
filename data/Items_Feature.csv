@@ -1,0 +1,10 @@
+﻿item_id,brand,model,model_key,cc,price_est_thb,type,budget_level,usage_fit,style,performance,comfort,easy_to_ride,fuel_saving,storage_need
+I001,Honda,Click 160,honda_click_160,160,69900,sport automatic scooter,medium,"city,daily",sporty,medium,medium,1,1,0
+I002,Honda,ADV 160,honda_adv_160,160,99900,adventure scooter,medium,"daily,long_distance,rough_road",sporty,medium,high,1,0,1
+I003,Honda,Forza 350,honda_forza_350,330,179000,maxi scooter,high,"long_distance,daily",premium,high,high,0,0,1
+I004,Honda,Giorno+,honda_giorno_plus,125,61900,classic fashion scooter,low,"city,daily",beauty,low,medium,1,1,1
+I005,Yamaha,Grand Filano Hybrid,yamaha_grand_filano_hybrid,125,69200,hybrid classic scooter,medium,"city,daily",beauty,low,high,1,1,1
+I006,Yamaha,N-MAX,yamaha_nmax,155,95500,sport maxi scooter,medium,"daily,long_distance",sporty,medium,high,1,0,1
+I007,Honda,PCX 160,honda_pcx_160,160,95400,premium city scooter,medium,"city,daily,long_distance",premium,medium,high,1,1,1
+I008,Honda,Scoopy i,honda_scoopy_i,110,49900,compact fashion scooter,low,"city,daily",beauty,low,medium,1,1,0
+I009,Honda,Wave 125i,honda_wave_125i,125,55200,family underbone,low,"daily,delivery,city",practical,low,medium,1,1,0
