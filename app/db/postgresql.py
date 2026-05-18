@@ -1,7 +1,4 @@
 import os
-import json
-import psycopg2
-import psycopg2.extras
 from pathlib import Path
 from dotenv import load_dotenv
 from psycopg2 import pool as pg_pool
