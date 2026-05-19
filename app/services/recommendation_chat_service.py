@@ -72,6 +72,15 @@ async def stream_recommendation_answer(
             full_answer += token
             yield f"data: {json.dumps({'type': 'token', 'token': token}, ensure_ascii=False)}\n\n"
 
+        completion_tail = response_generator.complete_if_truncated(
+            current_answer=full_answer,
+            route_result=route_result,
+            graph_evidence=graph_evidence,
+        )
+        if completion_tail:
+            full_answer += completion_tail
+            yield f"data: {json.dumps({'type': 'token', 'token': completion_tail}, ensure_ascii=False)}\n\n"
+
         elapsed = round(time.time() - start_time, 1)
 
         yield f"data: {json.dumps({'type': 'done', 'elapsed': elapsed}, ensure_ascii=False)}\n\n"

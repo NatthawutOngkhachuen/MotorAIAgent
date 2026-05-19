@@ -35,7 +35,7 @@ class ResponseGenerator:
         model_name: str | None = None,
         base_url: str | None = None,
         temperature: float = 0.6,
-        num_predict: int = 700,
+        num_predict: int = 1400,
     ):
         self.model_name = model_name or os.getenv("GENERATOR_MODEL", "typhoon2")
         self.base_url = base_url or get_ollama_base_url("GENERATOR")
@@ -144,6 +144,113 @@ class ResponseGenerator:
         ):
             if chunk.content:
                 yield chunk.content
+
+    def complete_if_truncated(
+        self,
+        current_answer: str,
+        route_result: RecommendationRouteResult,
+        graph_evidence: list[dict[str, Any]],
+    ) -> str:
+        """
+        Add a small deterministic tail when the model stops right after a list number.
+        This prevents users from seeing a dangling "3" when generation hits a limit.
+        """
+
+        if not self._looks_like_dangling_list_number(current_answer):
+            return ""
+
+        dangling_rank = self._get_dangling_rank(current_answer)
+        missing_candidate = self._find_missing_candidate(
+            current_answer=current_answer,
+            route_result=route_result,
+            dangling_rank=dangling_rank,
+        )
+        if not missing_candidate:
+            return "\n\nถ้าต้องการ ผมช่วยคัดตัวที่เหมาะสุดจากงบและการใช้งานหลักให้ต่อได้ครับ"
+
+        item_id = missing_candidate.get("item_id")
+        evidence_by_item_id = {
+            item.get("item_id"): item
+            for item in graph_evidence
+        }
+        evidence = evidence_by_item_id.get(item_id, {})
+
+        brand = missing_candidate.get("brand") or evidence.get("brand") or ""
+        model = missing_candidate.get("model") or evidence.get("model") or "รุ่นที่แนะนำ"
+        display_name = f"{brand} {model}".strip()
+        reason = self._build_short_reason(evidence, missing_candidate)
+
+        suffix = ""
+        stripped = current_answer.rstrip()
+        if stripped.endswith("3"):
+            suffix = f". **{display_name}** -- {reason}ครับ"
+        elif stripped.endswith("3."):
+            suffix = f" **{display_name}** -- {reason}ครับ"
+        else:
+            suffix = f"\n3. **{display_name}** -- {reason}ครับ"
+
+        suffix += "\n\nถ้าให้ผมช่วยเลือกตัวเด่น ผมแนะนำให้ดูงบประมาณกับการใช้งานหลักของคุณเพิ่มอีกนิดครับ"
+        return suffix
+
+    def _looks_like_dangling_list_number(self, text: str) -> bool:
+        stripped = text.rstrip()
+        return stripped.endswith(("1", "1.", "2", "2.", "3", "3."))
+
+    def _get_dangling_rank(self, text: str) -> int | None:
+        stripped = text.rstrip().rstrip(".")
+        if not stripped:
+            return None
+        last_char = stripped[-1]
+        if last_char in {"1", "2", "3"}:
+            return int(last_char)
+        return None
+
+    def _find_missing_candidate(
+        self,
+        current_answer: str,
+        route_result: RecommendationRouteResult,
+        dangling_rank: int | None = None,
+    ) -> dict[str, Any] | None:
+        if dangling_rank is not None:
+            for candidate in route_result.candidates:
+                if candidate.get("rank") == dangling_rank:
+                    return candidate
+
+        for candidate in route_result.candidates:
+            model = str(candidate.get("model") or "")
+            brand = str(candidate.get("brand") or "")
+            if model and model not in current_answer:
+                return candidate
+            if brand and model and f"{brand} {model}" not in current_answer:
+                return candidate
+        return None
+
+    def _build_short_reason(
+        self,
+        evidence: dict[str, Any],
+        candidate: dict[str, Any],
+    ) -> str:
+        evidence_data = evidence.get("evidence", {}) if evidence else {}
+
+        reason_parts: list[str] = []
+        for key in ["use_case", "safety", "comfort", "storage", "efficiency", "performance"]:
+            values = evidence_data.get(key, [])
+            if values:
+                reason_parts.append(str(values[0]))
+            if len(reason_parts) >= 2:
+                break
+
+        if reason_parts:
+            return "เหมาะเพราะมีจุดเด่นเรื่อง " + " และ ".join(reason_parts[:2]) + " "
+
+        price = candidate.get("price_est_thb")
+        if price not in [None, "", "unknown"]:
+            try:
+                return f"เป็นอีกตัวเลือกที่น่าสนใจ ราคาประมาณ {int(price):,} บาท "
+            except (ValueError, TypeError):
+                return f"เป็นอีกตัวเลือกที่น่าสนใจ ราคาประมาณ {price} บาท "
+
+        return "เป็นอีกตัวเลือกที่ระบบจัดอันดับมาให้ตามความต้องการของคุณ "
 
     def _build_system_prompt(self) -> str:
         return """

@@ -1,5 +1,6 @@
 import os
 from neo4j import GraphDatabase
+from neo4j.exceptions import Neo4jError, ServiceUnavailable, SessionExpired
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -30,9 +31,31 @@ def _get_driver():
     return _driver
 
 
+def _close_driver():
+    global _driver, _driver_config
+
+    if _driver is not None:
+        _driver.close()
+    _driver = None
+    _driver_config = None
+
+
 def run_query(cypher: str, params: dict | None = None):
     params = params or {}
-    _driver = _get_driver()
-    with _driver.session() as session:
-        result = session.run(cypher, params)
-        return [record.data() for record in result]
+
+    for attempt in range(2):
+        driver = _get_driver()
+        try:
+            with driver.session() as session:
+                result = session.run(cypher, params)
+                return [record.data() for record in result]
+        except (ServiceUnavailable, SessionExpired, ConnectionResetError) as exc:
+            _close_driver()
+            if attempt == 0:
+                print(f"[WARN] Neo4j connection reset. Reconnecting once. {exc}")
+                continue
+            raise
+        except Neo4jError:
+            raise
+
+    return []

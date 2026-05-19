@@ -25,6 +25,7 @@ _pool = pg_pool.SimpleConnectionPool(
     dbname=os.getenv("POSTGRES_DB"),
     user=os.getenv("POSTGRES_USER"),
     password=os.getenv("POSTGRES_PASSWORD"),
+    sslmode=os.getenv("POSTGRES_SSLMODE", "prefer"),
 )
 
 print("PostgreSQL connection pool created successfully")
