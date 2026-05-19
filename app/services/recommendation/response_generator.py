@@ -1,11 +1,11 @@
 import json
 import os
-from typing import Any
+from typing import Any, AsyncGenerator
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_ollama import ChatOllama
 
+from app.services.ollama_client import get_ollama_base_url, make_chat_ollama
 from app.services.recommendation.data_loader import RecommendationDataLoader
 from app.services.recommendation.router import RecommendationRouteResult
 
@@ -34,19 +34,17 @@ class ResponseGenerator:
         self,
         model_name: str | None = None,
         base_url: str | None = None,
-        temperature: float = 0.4,
-        num_predict: int = 400,
+        temperature: float = 0.6,
+        num_predict: int = 1400,
     ):
         self.model_name = model_name or os.getenv("GENERATOR_MODEL", "typhoon2")
-        self.base_url = base_url or os.getenv(
-            "OLLAMA_BASE_URL",
-            "http://localhost:11434",
-        )
-        self.temperature = temperature
-        self.num_predict = num_predict
+        self.base_url = base_url or get_ollama_base_url("GENERATOR")
+        self.temperature = float(os.getenv("GENERATOR_TEMPERATURE", temperature))
+        self.num_predict = int(os.getenv("GENERATOR_NUM_PREDICT", num_predict))
 
-        self.llm = ChatOllama(
+        self.llm = make_chat_ollama(
             model=self.model_name,
+            prefix="GENERATOR",
             base_url=self.base_url,
             temperature=self.temperature,
             num_predict=self.num_predict,
@@ -59,7 +57,7 @@ class ResponseGenerator:
         graph_evidence: list[dict[str, Any]],
     ) -> str:
         """
-        สร้างคำตอบสุดท้ายให้ user
+        สร้างคำตอบสุดท้ายให้ user (แบบ blocking — ใช้สำหรับ non-streaming)
 
         out_of_catalog:
             ตอบ template ทันที ไม่เรียก LLM
@@ -98,6 +96,161 @@ class ResponseGenerator:
         )
 
         return response.content.strip()
+
+    async def astream(
+        self,
+        user_message: str,
+        route_result: RecommendationRouteResult,
+        graph_evidence: list[dict[str, Any]],
+    ) -> AsyncGenerator[str, None]:
+        """
+        Stream คำตอบทีละ token จาก LLM จริงๆ (ใช้แทน generate() สำหรับ streaming)
+
+        out_of_catalog / price_lookup:
+            yield ข้อความ template ทีเดียว ไม่เรียก LLM
+
+        route อื่น:
+            ใช้ llm.astream() เพื่อ yield ทีละ token จาก Ollama
+        """
+
+        if route_result.route == "out_of_catalog":
+            yield self._generate_out_of_catalog_response(route_result)
+            return
+
+        if route_result.response_type == "price_lookup":
+            yield self._generate_price_lookup_response(route_result)
+            return
+
+        if not graph_evidence:
+            yield (
+                "ตอนนี้ระบบยังไม่พบข้อมูลรถที่เกี่ยวข้องในฐานข้อมูลครับ "
+                "จึงยังไม่สามารถสรุปคำแนะนำจาก GraphRAG ได้"
+            )
+            return
+
+        system_prompt = self._build_system_prompt()
+        human_prompt = self._build_human_prompt(
+            user_message=user_message,
+            route_result=route_result,
+            graph_evidence=graph_evidence,
+        )
+
+        # ✅ stream ทีละ token จาก Ollama จริงๆ
+        async for chunk in self.llm.astream(
+            [
+                SystemMessage(content=system_prompt),
+                HumanMessage(content=human_prompt),
+            ]
+        ):
+            if chunk.content:
+                yield chunk.content
+
+    def complete_if_truncated(
+        self,
+        current_answer: str,
+        route_result: RecommendationRouteResult,
+        graph_evidence: list[dict[str, Any]],
+    ) -> str:
+        """
+        Add a small deterministic tail when the model stops right after a list number.
+        This prevents users from seeing a dangling "3" when generation hits a limit.
+        """
+
+        if not self._looks_like_dangling_list_number(current_answer):
+            return ""
+
+        dangling_rank = self._get_dangling_rank(current_answer)
+        missing_candidate = self._find_missing_candidate(
+            current_answer=current_answer,
+            route_result=route_result,
+            dangling_rank=dangling_rank,
+        )
+        if not missing_candidate:
+            return "\n\nถ้าต้องการ ผมช่วยคัดตัวที่เหมาะสุดจากงบและการใช้งานหลักให้ต่อได้ครับ"
+
+        item_id = missing_candidate.get("item_id")
+        evidence_by_item_id = {
+            item.get("item_id"): item
+            for item in graph_evidence
+        }
+        evidence = evidence_by_item_id.get(item_id, {})
+
+        brand = missing_candidate.get("brand") or evidence.get("brand") or ""
+        model = missing_candidate.get("model") or evidence.get("model") or "รุ่นที่แนะนำ"
+        display_name = f"{brand} {model}".strip()
+        reason = self._build_short_reason(evidence, missing_candidate)
+
+        suffix = ""
+        stripped = current_answer.rstrip()
+        if stripped.endswith("3"):
+            suffix = f". **{display_name}** -- {reason}ครับ"
+        elif stripped.endswith("3."):
+            suffix = f" **{display_name}** -- {reason}ครับ"
+        else:
+            suffix = f"\n3. **{display_name}** -- {reason}ครับ"
+
+        suffix += "\n\nถ้าให้ผมช่วยเลือกตัวเด่น ผมแนะนำให้ดูงบประมาณกับการใช้งานหลักของคุณเพิ่มอีกนิดครับ"
+        return suffix
+
+    def _looks_like_dangling_list_number(self, text: str) -> bool:
+        stripped = text.rstrip()
+        return stripped.endswith(("1", "1.", "2", "2.", "3", "3."))
+
+    def _get_dangling_rank(self, text: str) -> int | None:
+        stripped = text.rstrip().rstrip(".")
+        if not stripped:
+            return None
+        last_char = stripped[-1]
+        if last_char in {"1", "2", "3"}:
+            return int(last_char)
+        return None
+
+    def _find_missing_candidate(
+        self,
+        current_answer: str,
+        route_result: RecommendationRouteResult,
+        dangling_rank: int | None = None,
+    ) -> dict[str, Any] | None:
+        if dangling_rank is not None:
+            for candidate in route_result.candidates:
+                if candidate.get("rank") == dangling_rank:
+                    return candidate
+
+        for candidate in route_result.candidates:
+            model = str(candidate.get("model") or "")
+            brand = str(candidate.get("brand") or "")
+            if model and model not in current_answer:
+                return candidate
+            if brand and model and f"{brand} {model}" not in current_answer:
+                return candidate
+        return None
+
+    def _build_short_reason(
+        self,
+        evidence: dict[str, Any],
+        candidate: dict[str, Any],
+    ) -> str:
+        evidence_data = evidence.get("evidence", {}) if evidence else {}
+
+        reason_parts: list[str] = []
+        for key in ["use_case", "safety", "comfort", "storage", "efficiency", "performance"]:
+            values = evidence_data.get(key, [])
+            if values:
+                reason_parts.append(str(values[0]))
+            if len(reason_parts) >= 2:
+                break
+
+        if reason_parts:
+            return "เหมาะเพราะมีจุดเด่นเรื่อง " + " และ ".join(reason_parts[:2]) + " "
+
+        price = candidate.get("price_est_thb")
+        if price not in [None, "", "unknown"]:
+            try:
+                return f"เป็นอีกตัวเลือกที่น่าสนใจ ราคาประมาณ {int(price):,} บาท "
+            except (ValueError, TypeError):
+                return f"เป็นอีกตัวเลือกที่น่าสนใจ ราคาประมาณ {price} บาท "
+
+        return "เป็นอีกตัวเลือกที่ระบบจัดอันดับมาให้ตามความต้องการของคุณ "
 
     def _build_system_prompt(self) -> str:
         return """
@@ -147,6 +300,14 @@ class ResponseGenerator:
 
 ข้อมูลสำหรับตอบ:
 {json.dumps(compact_context, ensure_ascii=False)}
+
+ข้อกำหนดคุณภาพคำตอบ:
+- ห้ามตอบห้วนแบบ bullet สั้น ๆ ที่ไม่มีบริบท
+- เปิดด้วยประโยคสั้น ๆ ที่โยงกับความต้องการของผู้ใช้
+- แนะนำแต่ละรุ่นด้วยเหตุผล 1-2 ประโยค โดยใช้ภาษาคนขายที่สุภาพและเป็นธรรมชาติ
+- ถ้าข้อมูลมีจำกัด ให้พูดว่า "จากข้อมูลที่ระบบมี" แล้วอธิบายเท่าที่มี ห้ามแต่งเพิ่ม
+- ปิดท้ายด้วยคำถามต่อยอด 1 ข้อ เช่น งบประมาณ การใช้งานหลัก หรือสไตล์ที่ชอบ
+- ใช้รายการได้ แต่ให้เขียนเป็นประโยคอ่านรู้เรื่อง ไม่ใช่ keyword ต่อกัน
 
 โปรดสร้างคำตอบสุดท้ายให้ผู้ใช้ โดยตอบแบบกระชับและอิงข้อมูลด้านบนเท่านั้น
         """.strip()

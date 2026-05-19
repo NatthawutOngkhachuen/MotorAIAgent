@@ -26,6 +26,10 @@ class LoginRequest(BaseModel):
 
 class LoginResponse(BaseModel):
     message: str
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    expires_at: str
     user_id: UUID
     username: str
     name: str

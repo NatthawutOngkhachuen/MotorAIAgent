@@ -19,7 +19,7 @@ class UserPreferenceSchema(BaseModel):
     ใช้กรณีที่ recommender ต้องอิงข้อมูลผู้ใช้ร่วมกับ preference
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     intent: IntentType = Field(
         default="unknown",
@@ -87,7 +87,7 @@ class ItemPreferenceSchema(BaseModel):
     ใช้กรณี Unknown User หรือไม่ต้องอิงข้อมูลส่วนตัวผู้ใช้
     """
 
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="ignore")
 
     intent: IntentType = Field(
         default="unknown",

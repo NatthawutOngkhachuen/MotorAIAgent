@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+import logging
+
+from fastapi import APIRouter, HTTPException, Query, status
 
 from app.schemas.auth_schema import (
     RegisterRequest,
@@ -9,10 +11,31 @@ from app.schemas.auth_schema import (
 from app.services.auth_service import register_user, login_user
 
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(
     prefix="/auth",
     tags=["Auth"]
 )
+
+
+def _mask_token(token: str) -> str:
+    if len(token) <= 16:
+        return token
+
+    return f"{token[:12]}...{token[-8:]}"
+
+
+def _login_with_logging(username: str, password: str):
+    result = login_user(username=username, password=password)
+    logger.info(
+        "Login success username=%s user_id=%s token=%s expires_at=%s",
+        result["username"],
+        result["user_id"],
+        _mask_token(result["access_token"]),
+        result["expires_at"],
+    )
+    return result
 
 
 @router.post("/register", response_model=RegisterResponse)
@@ -32,12 +55,15 @@ def register(request: RegisterRequest):
         )
 
 
-@router.post("/login", response_model=LoginResponse)
-def login(request: LoginRequest):
+@router.get("/login", response_model=LoginResponse)
+def login_get(
+    username: str = Query(..., min_length=3, max_length=100),
+    password: str = Query(..., min_length=1),
+):
     try:
-        return login_user(
-            username=request.username,
-            password=request.password,
+        return _login_with_logging(
+            username=username,
+            password=password,
         )
     except ValueError as e:
         raise HTTPException(
