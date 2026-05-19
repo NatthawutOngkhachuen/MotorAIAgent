@@ -4,8 +4,8 @@ from typing import Any, AsyncGenerator
 
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage, SystemMessage
-from langchain_ollama import ChatOllama
 
+from app.services.ollama_client import get_ollama_base_url, make_chat_ollama
 from app.services.recommendation.data_loader import RecommendationDataLoader
 from app.services.recommendation.router import RecommendationRouteResult
 
@@ -34,19 +34,17 @@ class ResponseGenerator:
         self,
         model_name: str | None = None,
         base_url: str | None = None,
-        temperature: float = 0.4,
-        num_predict: int = 400,
+        temperature: float = 0.6,
+        num_predict: int = 700,
     ):
         self.model_name = model_name or os.getenv("GENERATOR_MODEL", "typhoon2")
-        self.base_url = base_url or os.getenv(
-            "OLLAMA_BASE_URL",
-            "http://localhost:11434",
-        )
-        self.temperature = temperature
-        self.num_predict = num_predict
+        self.base_url = base_url or get_ollama_base_url("GENERATOR")
+        self.temperature = float(os.getenv("GENERATOR_TEMPERATURE", temperature))
+        self.num_predict = int(os.getenv("GENERATOR_NUM_PREDICT", num_predict))
 
-        self.llm = ChatOllama(
+        self.llm = make_chat_ollama(
             model=self.model_name,
+            prefix="GENERATOR",
             base_url=self.base_url,
             temperature=self.temperature,
             num_predict=self.num_predict,
@@ -195,6 +193,14 @@ class ResponseGenerator:
 
 ข้อมูลสำหรับตอบ:
 {json.dumps(compact_context, ensure_ascii=False)}
+
+ข้อกำหนดคุณภาพคำตอบ:
+- ห้ามตอบห้วนแบบ bullet สั้น ๆ ที่ไม่มีบริบท
+- เปิดด้วยประโยคสั้น ๆ ที่โยงกับความต้องการของผู้ใช้
+- แนะนำแต่ละรุ่นด้วยเหตุผล 1-2 ประโยค โดยใช้ภาษาคนขายที่สุภาพและเป็นธรรมชาติ
+- ถ้าข้อมูลมีจำกัด ให้พูดว่า "จากข้อมูลที่ระบบมี" แล้วอธิบายเท่าที่มี ห้ามแต่งเพิ่ม
+- ปิดท้ายด้วยคำถามต่อยอด 1 ข้อ เช่น งบประมาณ การใช้งานหลัก หรือสไตล์ที่ชอบ
+- ใช้รายการได้ แต่ให้เขียนเป็นประโยคอ่านรู้เรื่อง ไม่ใช่ keyword ต่อกัน
 
 โปรดสร้างคำตอบสุดท้ายให้ผู้ใช้ โดยตอบแบบกระชับและอิงข้อมูลด้านบนเท่านั้น
         """.strip()

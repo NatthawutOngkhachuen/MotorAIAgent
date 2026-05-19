@@ -4,9 +4,9 @@ from typing import Literal, Type
 
 from dotenv import load_dotenv
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_ollama import ChatOllama
 from pydantic import BaseModel
 
+from app.services.ollama_client import get_ollama_base_url, make_chat_ollama
 from app.services.recommendation.schemas import (
     UserPreferenceSchema,
     ItemPreferenceSchema,
@@ -40,14 +40,12 @@ class PreferenceExtractorService:
         temperature: float = 0.0,
     ):
         self.model_name = model_name or os.getenv("EXTRACTOR_MODEL", "qwen2.5:3b")
-        self.base_url = base_url or os.getenv(
-            "OLLAMA_BASE_URL",
-            "http://localhost:11434",
-        )
+        self.base_url = base_url or get_ollama_base_url("EXTRACTOR")
         self.temperature = temperature
 
-        self.llm = ChatOllama(
+        self.llm = make_chat_ollama(
             model=self.model_name,
+            prefix="EXTRACTOR",
             base_url=self.base_url,
             temperature=self.temperature,
             num_predict=600,
@@ -115,12 +113,18 @@ class PreferenceExtractorService:
 
         schema_json = schema_class.model_json_schema()
 
-        json_llm = ChatOllama(
+        json_llm_kwargs = {
+            "temperature": 0,
+            "num_predict": 600,
+        }
+        if "ollama.com" not in self.base_url:
+            json_llm_kwargs["format"] = schema_json
+
+        json_llm = make_chat_ollama(
             model=self.model_name,
+            prefix="EXTRACTOR",
             base_url=self.base_url,
-            temperature=0,
-            num_predict=600,
-            format=schema_json,
+            **json_llm_kwargs,
         )
 
         prompt = ChatPromptTemplate.from_messages(

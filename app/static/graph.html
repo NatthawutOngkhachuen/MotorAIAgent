@@ -206,8 +206,11 @@
     try {
       const res  = await fetch('/api/v1/graph');
       const data = await res.json();
-      allNodes = data.nodes;
-      allEdges = data.edges;
+      if (!res.ok) {
+        throw new Error(data.detail || `HTTP ${res.status}`);
+      }
+      allNodes = Array.isArray(data.nodes) ? data.nodes : [];
+      allEdges = Array.isArray(data.edges) ? data.edges : [];
 
       buildLabelFilters();
       buildModelSelect();

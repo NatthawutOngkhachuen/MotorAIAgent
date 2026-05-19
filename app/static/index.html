@@ -384,10 +384,12 @@
     const { bubble } = addMsg('bot', '', null);
     const cursor = document.createElement('span');
     cursor.className = 'cursor';
+    bubble.textContent = 'กำลังวิเคราะห์คำตอบ...';
     bubble.appendChild(cursor);
 
     let modelCount  = 0;
     let fullText    = '';
+    let pendingText = '';
 
     try {
       const body = { question, language: currentLang };
@@ -402,19 +404,78 @@
       const reader  = res.body.getReader();
       const decoder = new TextDecoder();
 
+      function handleStreamEvent(event) {
+        if (event.type === 'session') {
+          modelCount = event.model_count || modelCount;
+          if (!currentSession) {
+            currentSession = event.session_id;
+            localStorage.setItem('last_session', currentSession);
+            const title = question.length > 24 ? question.slice(0, 24) + '...' : question;
+            addSession(currentSession, title);
+            renderSidebar();
+          }
+        } else if (event.type === 'token') {
+          fullText += event.token || '';
+          bubble.textContent = fullText;
+          bubble.appendChild(cursor);
+          chatWindow.scrollTop = chatWindow.scrollHeight;
+        } else if (event.type === 'metadata') {
+          modelCount = event.candidate_count || modelCount;
+        } else if (event.type === 'error') {
+          cursor.remove();
+          bubble.textContent = event.message || 'เกิดข้อผิดพลาดในการประมวลผลคำถามครับ';
+          fullText = bubble.textContent;
+        } else if (event.type === 'done') {
+          cursor.remove();
+          if (!fullText) {
+            bubble.textContent = 'ตอนนี้ระบบยังไม่ได้รับคำตอบจากโมเดลครับ ลองถามใหม่อีกครั้งได้ไหมครับ';
+          }
+          const m = document.createElement('div');
+          m.className   = 'meta';
+          m.textContent = i18n[currentLang].usedData(modelCount, event.elapsed);
+          bubble.appendChild(m);
+        }
+      }
+
+      function processStreamPart(part) {
+        const data = part
+          .split('\n')
+          .filter(line => line.startsWith('data: '))
+          .map(line => line.slice(6))
+          .join('\n')
+          .trim();
+
+        if (!data) return;
+
+        try {
+          handleStreamEvent(JSON.parse(data));
+        } catch (err) {
+          console.warn('Cannot parse stream event:', data, err);
+        }
+      }
+
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) {
+          pendingText += decoder.decode();
+          break;
+        }
 
-        const text  = decoder.decode(value, { stream: true });
-        const lines = text.split('\n').filter(l => l.startsWith('data: '));
+        pendingText += decoder.decode(value, { stream: true });
+        const parts = pendingText.split('\n\n');
+        pendingText = parts.pop() || '';
 
-        for (const line of lines) {
+        for (const part of parts) {
+          processStreamPart(part);
+          continue;
           try {
+            const line = part.split('\n').find(l => l.startsWith('data: '));
+            if (!line) continue;
+
             const event = JSON.parse(line.slice(6));
 
             if (event.type === 'session') {
-              modelCount = event.model_count;
+              modelCount = event.model_count || modelCount;
               if (!currentSession) {
                 currentSession = event.session_id;
                 localStorage.setItem('last_session', currentSession);
@@ -429,8 +490,19 @@
               bubble.appendChild(cursor);
               chatWindow.scrollTop = chatWindow.scrollHeight;
 
+            } else if (event.type === 'metadata') {
+              modelCount = event.candidate_count || modelCount;
+
+            } else if (event.type === 'error') {
+              cursor.remove();
+              bubble.textContent = event.message || 'เกิดข้อผิดพลาดในการประมวลผลคำถามครับ';
+              fullText = bubble.textContent;
+
             } else if (event.type === 'done') {
               cursor.remove();
+              if (!fullText) {
+                bubble.textContent = 'ตอนนี้ระบบยังไม่ได้รับคำตอบจากโมเดลครับ ลองถามใหม่อีกครั้งได้ไหมครับ';
+              }
               const m = document.createElement('div');
               m.className   = 'meta';
               m.textContent = i18n[currentLang].usedData(modelCount, event.elapsed);
@@ -438,6 +510,10 @@
             }
           } catch {}
         }
+      }
+
+      if (pendingText.trim()) {
+        processStreamPart(pendingText);
       }
     } catch (err) {
       cursor.remove();

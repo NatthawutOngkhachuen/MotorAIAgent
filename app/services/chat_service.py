@@ -1,5 +1,4 @@
 import os
-from langchain_ollama import ChatOllama
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from app.db.neo4j import run_query
 from app.db.chat_repository import (
@@ -8,11 +7,13 @@ from app.db.chat_repository import (
     save_message,
     update_session_active,
 )
+from app.services.ollama_client import get_ollama_base_url, make_chat_ollama
 from typing import AsyncGenerator
 import time
 import json
 
 OLLAMA_MODEL  = os.getenv("OLLAMA_MODEL", "typhoon2")
+OLLAMA_BASE_URL = get_ollama_base_url()
 GUEST_USER_ID = "00000000-0000-0000-0000-000000000001"
 
 _graph_cache: str | None = None
@@ -170,7 +171,12 @@ async def stream_answer(question: str,
         HumanMessage(content=question),
     ]
 
-    llm = ChatOllama(model=OLLAMA_MODEL, temperature=0.7, num_predict=400)
+    llm = make_chat_ollama(
+        model=OLLAMA_MODEL,
+        base_url=OLLAMA_BASE_URL,
+        temperature=0.7,
+        num_predict=400,
+    )
 
     # ส่ง session_id และ model_count ก่อน
     yield f"data: {json.dumps({'type': 'session', 'session_id': session_id, 'model_count': model_count})}\n\n"
