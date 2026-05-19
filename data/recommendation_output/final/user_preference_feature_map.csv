@@ -1,0 +1,28 @@
+﻿index,source_column,feature_name,encoding,value
+0,usage_fit,usage_fit_city,multi_hot,city
+1,usage_fit,usage_fit_daily,multi_hot,daily
+2,usage_fit,usage_fit_delivery,multi_hot,delivery
+3,usage_fit,usage_fit_family,multi_hot,family
+4,usage_fit,usage_fit_long_distance,multi_hot,long_distance
+5,usage_fit,usage_fit_rough_road,multi_hot,rough_road
+6,usage_fit,usage_fit_shopping,multi_hot,shopping
+7,usage_fit,usage_fit_storage_heavy,multi_hot,storage_heavy
+8,usage_fit,usage_fit_trip,multi_hot,trip
+9,usage_fit,usage_fit_work,multi_hot,work
+10,style,style_adventure,multi_hot,adventure
+11,style,style_beauty,multi_hot,beauty
+12,style,style_classic,multi_hot,classic
+13,style,style_compact,multi_hot,compact
+14,style,style_cute,multi_hot,cute
+15,style,style_modern,multi_hot,modern
+16,style,style_premium,multi_hot,premium
+17,style,style_sporty,multi_hot,sporty
+18,budget_level,budget_level_score,ordinal_score,"Unknown=0, low=0.33, medium=0.66, high=1.0"
+19,performance,performance_score,ordinal_score,"Unknown=0, low=0.33, medium=0.66, high=1.0"
+20,comfort,comfort_score,ordinal_score,"Unknown=0, low=0.33, medium=0.66, high=1.0"
+21,safety_level,safety_level_score,ordinal_score,"Unknown=0, low=0.33, medium=0.66, high=1.0"
+22,technology_level,technology_level_score,ordinal_score,"Unknown=0, low=0.33, medium=0.66, high=1.0"
+23,easy_to_ride,easy_to_ride_flag,binary,"TRUE=1, Unknown/blank/FALSE=0"
+24,fuel_saving,fuel_saving_flag,binary,"TRUE=1, Unknown/blank/FALSE=0"
+25,storage_need,storage_need_flag,binary,"TRUE=1, Unknown/blank/FALSE=0"
+26,maintenance_easy,maintenance_easy_flag,binary,"TRUE=1, Unknown/blank/FALSE=0"

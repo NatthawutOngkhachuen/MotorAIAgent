@@ -32,6 +32,13 @@
       background: transparent; color: #fca5a5; cursor: pointer;
     }
     #logout-btn:hover { background: #ef4444; color: #fff; }
+    #recommendation-mode {
+      height: 30px; padding: 4px 10px; font-size: 12px; font-weight: 600;
+      border: 1px solid #4f46e5; border-radius: 8px;
+      background: #111827; color: #e0e7ff; cursor: pointer;
+      outline: none;
+    }
+    #recommendation-mode:focus { border-color: #818cf8; }
 
     #body-row { display: flex; flex: 1; overflow: hidden; }
 
@@ -121,6 +128,10 @@
 <header>
   <div style="display:flex;align-items:center;gap:10px;">🏍️ Motor-Agent</div>
   <div style="display:flex;gap:8px;align-items:center;">
+    <select id="recommendation-mode" title="Recommendation mode" onchange="setRecommendationMode(this.value)">
+      <option value="user-based">User-based</option>
+      <option value="cluster-based">Cluster-based</option>
+    </select>
     <button id="new-chat-btn" onclick="startNewChat()">+ New Chat</button>
     <button id="logout-btn" onclick="logoutToLogin()">Logout</button>
     <div class="lang-toggle">
@@ -156,11 +167,28 @@
   let currentLang    = 'th';
   let currentSession = null;
   let sessions       = [];
+  let recommendationMode = localStorage.getItem('recommendation_mode') || 'user-based';
 
   const chatWindow = document.getElementById('chat-window');
   const questionEl = document.getElementById('question');
   const sendBtn    = document.getElementById('send-btn');
+  const recommendationModeEl = document.getElementById('recommendation-mode');
   let tokenLogoutTimer = null;
+
+  recommendationModeEl.value = recommendationMode;
+
+  function recommendationEndpoint(action) {
+    return `/api/v1/recommendation/${recommendationMode}/${action}`;
+  }
+
+  function modeLabel() {
+    return recommendationMode === 'cluster-based' ? 'Cluster-based' : 'User-based';
+  }
+
+  function setRecommendationMode(mode) {
+    recommendationMode = mode === 'cluster-based' ? 'cluster-based' : 'user-based';
+    localStorage.setItem('recommendation_mode', recommendationMode);
+  }
 
   function getTokenExpiresAtMs() {
     const expiresAt = localStorage.getItem('token_expires_at');
@@ -366,10 +394,12 @@
     chatWindow.appendChild(w);
   }
 
-  function startNewChat() {
+  async function startNewChat() {
     currentSession = null;
     localStorage.removeItem('last_session');
-    showWelcome(); renderSidebar(); questionEl.focus();
+    chatWindow.innerHTML = '';
+    renderSidebar();
+    await startRecommendationChat();
   }
 
   function setLang(lang) {
@@ -433,7 +463,7 @@
       const body = { question, language: currentLang };
       if (currentSession) body.session_id = currentSession;
 
-      const res     = await authFetch('/api/v1/recommendation/item-based/chat', {
+      const res     = await authFetch(recommendationEndpoint('chat'), {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify(body),
@@ -563,6 +593,84 @@
     questionEl.focus();
   }
 
+  async function startRecommendationChat() {
+    sendBtn.disabled = true;
+    const { bubble } = addMsg('bot', '', null);
+    const cursor = document.createElement('span');
+    cursor.className = 'cursor';
+    bubble.textContent = 'กำลังเริ่มบทสนทนา...';
+    bubble.appendChild(cursor);
+
+    let fullText = '';
+    let pendingText = '';
+    let modelCount = 0;
+
+    try {
+      const res = await authFetch(recommendationEndpoint('start'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+
+      function handleStreamEvent(event) {
+        if (event.type === 'session') {
+          if (!currentSession) {
+            currentSession = event.session_id;
+            localStorage.setItem('last_session', currentSession);
+            addSession(currentSession, `${modeLabel()} Recommendation`);
+            renderSidebar();
+          }
+        } else if (event.type === 'token') {
+          fullText += event.token || '';
+          bubble.textContent = fullText;
+          bubble.appendChild(cursor);
+          chatWindow.scrollTop = chatWindow.scrollHeight;
+        } else if (event.type === 'metadata') {
+          modelCount = event.candidate_count || modelCount;
+        } else if (event.type === 'done') {
+          cursor.remove();
+          const m = document.createElement('div');
+          m.className = 'meta';
+          m.textContent = i18n[currentLang].usedData(modelCount, event.elapsed);
+          bubble.appendChild(m);
+          refreshSessions().catch(() => {});
+        }
+      }
+
+      function processStreamPart(part) {
+        const data = part
+          .split('\n')
+          .filter(line => line.startsWith('data: '))
+          .map(line => line.slice(6))
+          .join('\n')
+          .trim();
+        if (!data) return;
+        try { handleStreamEvent(JSON.parse(data)); } catch (err) { console.warn('Cannot parse stream event:', data, err); }
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) {
+          pendingText += decoder.decode();
+          break;
+        }
+        pendingText += decoder.decode(value, { stream: true });
+        const parts = pendingText.split('\n\n');
+        pendingText = parts.pop() || '';
+        for (const part of parts) processStreamPart(part);
+      }
+      if (pendingText.trim()) processStreamPart(pendingText);
+    } catch (err) {
+      cursor.remove();
+      bubble.textContent = i18n[currentLang].error + err.message;
+    }
+
+    sendBtn.disabled = false;
+    questionEl.focus();
+  }
+
   (async () => {
     await refreshSessions();
     const sessionIds = getSessions().map(s => s.id);
@@ -574,7 +682,7 @@
     } else if (getSessions().length) {
       await switchSession(getSessions()[0].id);
     } else {
-      showWelcome();
+      await startRecommendationChat();
     }
   })();
 </script>

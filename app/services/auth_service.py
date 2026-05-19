@@ -1,19 +1,19 @@
-from passlib.context import CryptContext
+import bcrypt
 
 from app.db.auth_repository import find_auth_by_username
 from app.db.user_repository import find_user_by_id
 from app.db.auth_transaction_repository import create_user_with_auth
 from app.services.jwt_service import JWT_EXPIRES_IN_SECONDS, create_access_token
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    password_bytes = password.encode("utf-8")[:72]
+    return bcrypt.hashpw(password_bytes, bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    password_bytes = plain_password.encode("utf-8")[:72]
+    return bcrypt.checkpw(password_bytes, hashed_password.encode("utf-8"))
 
 
 def register_user(username: str, password: str, name: str, age: int = None, gender: int = None):

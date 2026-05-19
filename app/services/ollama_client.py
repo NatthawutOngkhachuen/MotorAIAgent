@@ -35,16 +35,31 @@ def make_chat_ollama(
 ) -> ChatOllama:
     resolved_base_url = base_url or get_ollama_base_url(prefix)
     resolved_api_key = api_key or get_ollama_api_key(prefix)
+    timeout = kwargs.pop("timeout", None)
 
     client_kwargs = dict(kwargs.pop("client_kwargs", {}) or {})
+    async_client_kwargs = dict(kwargs.pop("async_client_kwargs", {}) or {})
+    sync_client_kwargs = dict(kwargs.pop("sync_client_kwargs", {}) or {})
+    if timeout is not None:
+        client_kwargs.setdefault("timeout", timeout)
+        async_client_kwargs.setdefault("timeout", timeout)
+        sync_client_kwargs.setdefault("timeout", timeout)
     if resolved_api_key:
         headers = dict(client_kwargs.get("headers", {}) or {})
         headers["Authorization"] = f"Bearer {resolved_api_key}"
         client_kwargs["headers"] = headers
+        async_headers = dict(async_client_kwargs.get("headers", {}) or {})
+        async_headers["Authorization"] = f"Bearer {resolved_api_key}"
+        async_client_kwargs["headers"] = async_headers
+        sync_headers = dict(sync_client_kwargs.get("headers", {}) or {})
+        sync_headers["Authorization"] = f"Bearer {resolved_api_key}"
+        sync_client_kwargs["headers"] = sync_headers
 
     return ChatOllama(
         model=model,
         base_url=resolved_base_url,
         client_kwargs=client_kwargs,
+        async_client_kwargs=async_client_kwargs,
+        sync_client_kwargs=sync_client_kwargs,
         **kwargs,
     )
