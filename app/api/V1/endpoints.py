@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
+from app.api.V1.auth_dependencies import get_current_user_id
 from app.api.V1.models import SearchRequest, ChatRequest
 from app.services.query_service import search_by_keyword, get_full_graph
 from app.services.chat_service import stream_answer, clear_graph_cache
@@ -28,13 +29,13 @@ async def refresh_graph():
 
 
 @router.post("/chat")
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, current_user_id: str = Depends(get_current_user_id)):
     return StreamingResponse(
         stream_answer(
             question=req.question,
             language=req.language,
             session_id=req.session_id,
-            user_id=req.user_id,
+            user_id=current_user_id,
         ),
         media_type="text/event-stream",
         headers={
@@ -45,7 +46,10 @@ async def chat(req: ChatRequest):
 
 
 @router.get("/history/{session_id}")
-async def get_history(session_id: str):
+async def get_history(
+    session_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+):
     try:
         messages = pg.load_all_messages(session_id)
         return {"session_id": session_id, "messages": messages}
@@ -54,9 +58,9 @@ async def get_history(session_id: str):
 
 
 @router.post("/session/new")
-async def new_session(user_id: str = "00000000-0000-0000-0000-000000000001"):
+async def new_session(current_user_id: str = Depends(get_current_user_id)):
     try:
-        session_id = pg.create_session(user_id)
+        session_id = pg.create_session(current_user_id)
         return {"session_id": session_id}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

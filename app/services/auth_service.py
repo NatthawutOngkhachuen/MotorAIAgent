@@ -3,6 +3,7 @@ from passlib.context import CryptContext
 from app.db.auth_repository import find_auth_by_username
 from app.db.user_repository import find_user_by_id
 from app.db.auth_transaction_repository import create_user_with_auth
+from app.services.jwt_service import JWT_EXPIRES_IN_SECONDS, create_access_token
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -41,8 +42,14 @@ def login_user(username: str, password: str):
     if not user:
         raise ValueError("User profile not found")
 
+    access_token, expires_at = create_access_token(user["id"])
+
     return {
         "message": "Login successful",
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": JWT_EXPIRES_IN_SECONDS,
+        "expires_at": expires_at.isoformat(),
         "user_id": user["id"],
         "auth_account_id": account["auth_account_id"],
         "username": account["username"],
