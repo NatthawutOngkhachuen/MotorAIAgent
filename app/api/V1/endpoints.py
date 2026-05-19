@@ -51,8 +51,22 @@ async def get_history(
     current_user_id: str = Depends(get_current_user_id),
 ):
     try:
-        messages = pg.load_all_messages(session_id)
+        if not pg.session_belongs_to_user(session_id, current_user_id):
+            raise HTTPException(status_code=404, detail="Session not found")
+        messages = pg.load_all_messages(session_id, current_user_id)
         return {"session_id": session_id, "messages": messages}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/sessions")
+async def list_sessions(current_user_id: str = Depends(get_current_user_id)):
+    try:
+        return {
+            "sessions": pg.list_sessions_by_user(current_user_id),
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -62,6 +76,22 @@ async def new_session(current_user_id: str = Depends(get_current_user_id)):
     try:
         session_id = pg.create_session(current_user_id)
         return {"session_id": session_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.delete("/session/{session_id}")
+async def delete_session(
+    session_id: str,
+    current_user_id: str = Depends(get_current_user_id),
+):
+    try:
+        deleted = pg.delete_session_for_user(session_id, current_user_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {"deleted": True, "session_id": session_id}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

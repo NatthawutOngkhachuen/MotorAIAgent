@@ -6,6 +6,7 @@ from app.db.chat_repository import (
     create_session,
     load_recent_messages,
     save_message,
+    session_belongs_to_user,
     update_session_active,
 )
 from app.services.recommendation.graph_retriever import GraphRetriever
@@ -24,6 +25,9 @@ async def stream_recommendation_answer(
 ) -> AsyncGenerator[str, None]:
 
     user_id = user_id or GUEST_USER_ID
+
+    if session_id and not session_belongs_to_user(session_id, user_id):
+        session_id = None
 
     if not session_id:
         session_id = create_session(user_id)

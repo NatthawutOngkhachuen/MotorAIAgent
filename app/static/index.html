@@ -155,6 +155,7 @@
 <script>
   let currentLang    = 'th';
   let currentSession = null;
+  let sessions       = [];
 
   const chatWindow = document.getElementById('chat-window');
   const questionEl = document.getElementById('question');
@@ -262,19 +263,48 @@
     },
   };
 
-  function getSessions()          { return JSON.parse(localStorage.getItem('sessions') || '[]'); }
-  function saveSessions(sessions) { localStorage.setItem('sessions', JSON.stringify(sessions)); }
+  function getSessions()          { return sessions; }
+  function saveSessions(nextSessions) { sessions = nextSessions; }
+
+  function normalizeSessionTitle(title) {
+    const cleanTitle = (title || 'New chat').trim();
+    return cleanTitle.length > 32 ? cleanTitle.slice(0, 32) + '...' : cleanTitle;
+  }
+
+  async function refreshSessions() {
+    const res = await authFetch('/api/v1/sessions');
+    const data = await res.json();
+    saveSessions((data.sessions || []).map(s => ({
+      id: s.session_id,
+      title: normalizeSessionTitle(s.title),
+      created_at: s.created_at,
+      last_active: s.last_active,
+    })));
+    renderSidebar();
+  }
 
   function addSession(session_id, title) {
     const sessions = getSessions();
-    if (sessions.find(s => s.id === session_id)) return;
-    sessions.unshift({ id: session_id, title });
+    const existing = sessions.find(s => s.id === session_id);
+    if (existing) {
+      existing.title = normalizeSessionTitle(title || existing.title);
+      renderSidebar();
+      return;
+    }
+    sessions.unshift({ id: session_id, title: normalizeSessionTitle(title) });
     saveSessions(sessions);
   }
 
-  function deleteSession(session_id) {
+  async function deleteSession(session_id) {
+    try {
+      await authFetch(`/api/v1/session/${session_id}`, { method: 'DELETE' });
+    } catch {}
     saveSessions(getSessions().filter(s => s.id !== session_id));
-    if (currentSession === session_id) { currentSession = null; showWelcome(); }
+    if (currentSession === session_id) {
+      currentSession = null;
+      localStorage.removeItem('last_session');
+      showWelcome();
+    }
     renderSidebar();
   }
 
@@ -315,7 +345,15 @@
       for (const msg of data.messages) {
         addMsg(msg.role === 'user' ? 'user' : 'bot', msg.content, null);
       }
-    } catch { showWelcome(); }
+    } catch {
+      saveSessions(getSessions().filter(s => s.id !== session_id));
+      if (currentSession === session_id) {
+        currentSession = null;
+        localStorage.removeItem('last_session');
+      }
+      renderSidebar();
+      showWelcome();
+    }
   }
 
   function showWelcome() {
@@ -434,6 +472,7 @@
           m.className   = 'meta';
           m.textContent = i18n[currentLang].usedData(modelCount, event.elapsed);
           bubble.appendChild(m);
+          refreshSessions().catch(() => {});
         }
       }
 
@@ -525,12 +564,17 @@
   }
 
   (async () => {
-    renderSidebar();
+    await refreshSessions();
+    const sessionIds = getSessions().map(s => s.id);
     const lastSession = localStorage.getItem('last_session');
-    if (lastSession) {
+    if (lastSession && sessionIds.includes(lastSession)) {
       currentSession = lastSession;
       renderSidebar();
       await loadHistory(lastSession);
+    } else if (getSessions().length) {
+      await switchSession(getSessions()[0].id);
+    } else {
+      showWelcome();
     }
   })();
 </script>
