@@ -79,7 +79,10 @@ class FakeLangChainExtractor:
         if text.strip() in {"yes", "y"} and set(last_asked_slots) == {"easy_to_ride", "fuel_saving"}:
             return {"easy_to_ride": True, "fuel_saving": True}
         if "no storage" in text or "easy maintenance" in text:
-            return {"storage_need": False, "maintenance_easy": True}
+            result = {"storage_need": False, "maintenance_easy": True}
+            if "save fuel" in text:
+                result["fuel_saving"] = True
+            return result
         return {}
 
 
@@ -136,14 +139,20 @@ def test_row_unknowns_do_not_become_features() -> None:
 def test_slot_filling_many_answer_styles() -> None:
     service = SlotFillingService()
     first_question, state = service.start()
-    assert "งบ" in first_question
+    assert "4-5" in first_question
+    assert "ใช้รถ" in first_question
 
     state, question = service.handle_message("ไม่แพงมาก ใช้ไปเรียนทุกวันในเมือง ชอบทรงสปอร์ตเท่ๆ", state)
-    assert state.preferences["budget_level"] == "low"
+    assert state.preferences["budget_level"] == "unknown"
     assert "daily" in state.preferences["usage_fit"]
     assert "city" in state.preferences["usage_fit"]
     assert "sporty" in state.preferences["style"]
-    assert "แรง" in question
+    assert "สบาย" in question
+    assert "ขี่เรื่อยๆ" in question
+
+    state, question = service.handle_message("ชอบสปอร์ต โมเดิร์น กะทัดรัด", state)
+    assert "modern" in state.preferences["style"]
+    assert "ขี่เรื่อยๆ" in question
 
     state, question = service.handle_message("ขอแรงพอประมาณ แต่นั่งสบายมาก", state)
     assert state.preferences["performance"] == "medium"
@@ -152,17 +161,22 @@ def test_slot_filling_many_answer_styles() -> None:
 
     state, question = service.handle_message("ปลอดภัยสูง ฟีเจอร์เยอะ", state)
     assert state.preferences["safety_level"] == "high"
-    assert state.preferences["technology_level"] == "high"
+    assert state.preferences["technology_level"] == "unknown"
 
     state, question = service.handle_message("ใช่", state)
     assert state.preferences["easy_to_ride"] is True
-    assert state.preferences["fuel_saving"] is True
+    assert "ประหยัด" in question
 
-    state, question = service.handle_message("ไม่ต้องมีที่เก็บของ แต่ขอดูแลง่าย", state)
+    state, question = service.handle_message("ประหยัดน้ำมันด้วย แต่ไม่ต้องมีที่เก็บของ และขอดูแลง่าย", state)
+    assert state.preferences["fuel_saving"] is True
     assert state.preferences["storage_need"] is False
-    assert state.preferences["maintenance_easy"] is True
+    assert state.preferences["maintenance_easy"] == "unknown"
     assert question is None
     assert state.is_complete is True
+    vector = service.build_vector(state.preferences)
+    assert vector[FEATURE_NAMES.index("budget_level_score")] == 0.0
+    assert vector[FEATURE_NAMES.index("technology_level_score")] == 0.0
+    assert vector[FEATURE_NAMES.index("maintenance_easy_flag")] == 0.0
 
 
 def test_langchain_memory_chat_flow_three_rounds() -> None:
@@ -170,7 +184,7 @@ def test_langchain_memory_chat_flow_three_rounds() -> None:
     extractor = FakeLangChainExtractor()
     service = SlotFillingService(extractor=extractor)
     _, state = service.start()
-    history = [{"role": "assistant", "content": "budget question"}]
+    history = [{"role": "assistant", "content": "usage question"}]
 
     state, question = service.handle_message(
         "cheap bike for school in the city, sporty look",
@@ -205,12 +219,12 @@ def test_langchain_memory_chat_flow_three_rounds() -> None:
             {"role": "assistant", "content": question or ""},
         ]
     )
-    state, question = service.handle_message("no storage but easy maintenance", state, history, "round-1")
+    state, question = service.handle_message("save fuel, no storage but easy maintenance", state, history, "round-1")
     assert state.is_complete is True
     assert question is None
     assert state.preferences["easy_to_ride"] is True
     assert state.preferences["fuel_saving"] is True
-    assert extractor.calls[-2]["last_asked_slots"] == ["easy_to_ride", "fuel_saving"]
+    assert extractor.calls[-2]["last_asked_slots"] == ["safety_level", "easy_to_ride"]
     assert extractor.calls[-1]["history_len"] > 0
 
     # Round 2: user answers many slots at once. The service should not ask repeats.
@@ -220,12 +234,14 @@ def test_langchain_memory_chat_flow_three_rounds() -> None:
     state2, question2 = service2.handle_message(
         "touring, premium modern, high budget, high safety, smart key, storage, easy maintenance",
         state2,
-        chat_history=[{"role": "assistant", "content": "budget question"}],
+        chat_history=[{"role": "assistant", "content": "usage question"}],
         session_id="round-2",
     )
     assert state2.is_complete is True
     assert question2 is None
-    assert state2.preferences["budget_level"] == "high"
+    assert state2.preferences["budget_level"] == "unknown"
+    assert state2.preferences["technology_level"] == "unknown"
+    assert state2.preferences["maintenance_easy"] == "unknown"
     assert "long_distance" in state2.preferences["usage_fit"]
 
     # Round 3: work/delivery user with compact/practical needs completes in one response.
@@ -235,7 +251,7 @@ def test_langchain_memory_chat_flow_three_rounds() -> None:
     state3, question3 = service3.handle_message(
         "delivery work in city, medium budget, compact, save fuel, easy maintenance, storage",
         state3,
-        chat_history=[{"role": "assistant", "content": "budget question"}],
+        chat_history=[{"role": "assistant", "content": "usage question"}],
         session_id="round-3",
     )
     assert state3.is_complete is True

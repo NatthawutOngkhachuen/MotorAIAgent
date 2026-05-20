@@ -141,7 +141,7 @@ class UserPreferenceChatService:
             yield self._event("token", {"token": token})
 
         if not full_answer.strip():
-            full_answer = self._fallback_answer(state.preferences, nearest, cluster, candidates)
+            full_answer = self._fallback_answer(state.preferences, nearest, cluster, candidates, graph_evidence)
             yield self._event("token", {"token": full_answer})
 
         db["save_message"](
@@ -201,7 +201,7 @@ class UserPreferenceChatService:
         graph_evidence: list[dict[str, Any]],
         disable_llm: bool = False,
     ) -> AsyncGenerator[str, None]:
-        fallback = self._fallback_answer(preferences, nearest, cluster, candidates)
+        fallback = self._fallback_answer(preferences, nearest, cluster, candidates, graph_evidence)
         if disable_llm:
             yield fallback
             return
@@ -221,8 +221,9 @@ class UserPreferenceChatService:
                     SystemMessage(
                         content=(
                             "You are MotorAiAgent, a Thai motorcycle recommendation assistant. "
-                            "Answer in Thai, naturally and concisely. Recommend only the provided candidates. "
-                            "Use graph evidence when available. Do not invent specs."
+                            "Answer in Thai with a warm, practical, consultative tone. "
+                            "Recommend only the provided candidates. Use graph evidence explicitly when available. "
+                            "Do not invent specs. Avoid robotic phrasing."
                         )
                     ),
                     HumanMessage(content=prompt),
@@ -259,8 +260,11 @@ class UserPreferenceChatService:
         }
         return (
             "สรุปคำแนะนำรถจาก context ต่อไปนี้ให้ผู้ใช้เข้าใจง่าย "
-            "เริ่มด้วยรุ่นที่เหมาะที่สุด 1 รุ่น แล้วเสริมตัวเลือกอื่นได้ไม่เกิน 3 รุ่น "
-            "ตอบเป็น 3 bullet เท่านั้น bullet ละไม่เกิน 1 บรรทัด ห้ามใส่รายละเอียดที่ไม่มีใน evidence\n\n"
+            "ให้เหมือนผู้ช่วยที่เข้าใจบริบท ไม่ใช่รายงานจากระบบ "
+            "เริ่มด้วยประโยคสั้นๆ ว่ารุ่นไหนน่าเริ่มดูที่สุดและเพราะอะไร "
+            "จากนั้นให้เหตุผล 2-3 ข้อโดยอ้างอิง graph_evidence เช่น เหมาะกับการใช้งาน สไตล์ ความสบาย ความปลอดภัย หรือความประหยัด "
+            "ปิดท้ายด้วยตัวเลือกสำรองไม่เกิน 2 รุ่นถ้ามีเหตุผลจาก evidence รองรับ "
+            "ห้ามพูดว่าระบบ/GraphRAG/evidence และห้ามใส่รายละเอียดที่ไม่มีใน evidence\n\n"
             + json.dumps(context, ensure_ascii=False)
         )
 
@@ -270,25 +274,140 @@ class UserPreferenceChatService:
         nearest: dict[str, Any] | None,
         cluster: dict[str, Any] | None,
         candidates: list[dict[str, Any]],
+        graph_evidence: list[dict[str, Any]] | None = None,
     ) -> str:
         if not candidates:
             return "ตอนนี้ยังหารุ่นที่เหมาะจากข้อมูลผู้ใช้เดิมไม่ได้ครับ"
 
         first = candidates[0]
+        evidence_by_item_id = {
+            str(item.get("item_id")): item for item in graph_evidence or []
+        }
+        first_evidence = evidence_by_item_id.get(str(first.get("item_id")), {})
+        reasons = self._fallback_evidence_reasons(first_evidence, preferences)
         lines = [
             self._fallback_opening(first, nearest, cluster),
             "",
-            "ตัวเลือกที่ระบบแนะนำ:",
+            "เหตุผลที่รุ่นนี้เข้าทางคุณ:",
         ]
-        for candidate in candidates[:3]:
-            price = candidate.get("price_est_thb")
-            price_text = f" ราคาโดยประมาณ {int(price):,} บาท" if str(price).isdigit() else ""
-            lines.append(f"- {candidate.get('brand') or ''} {candidate.get('model')}{price_text}".strip())
+        if reasons:
+            lines.extend(f"- {reason}" for reason in reasons[:3])
+        else:
+            lines.append("- โปรไฟล์ความต้องการของคุณใกล้กับผู้ใช้เดิมที่เลือกรุ่นนี้ จึงเป็นรุ่นที่ควรเริ่มลองดูครับ")
+
+        alternatives = candidates[1:3]
+        if alternatives:
+            lines.extend(["", "ตัวเลือกที่น่าดูเพิ่ม:"])
+            for candidate in alternatives:
+                price = candidate.get("price_est_thb")
+                price_text = f" ราคาโดยประมาณ {int(price):,} บาท" if str(price).isdigit() else ""
+                item_evidence = evidence_by_item_id.get(str(candidate.get("item_id")), {})
+                reason = self._short_candidate_reason(item_evidence)
+                suffix = f" - {reason}" if reason else ""
+                lines.append(f"- {candidate.get('brand') or ''} {candidate.get('model')}{price_text}{suffix}".strip())
+
+        lines.extend(["", "ผมแนะนำให้ใช้รุ่นแรกเป็นจุดเริ่มต้น แล้วค่อยเทียบฟีลนั่งกับตัวเลือกสำรองครับ"])
 
         cluster_id = cluster.get("cluster") if cluster else None
         if cluster_id is not None:
-            lines.append(f"\nผู้ใช้นี้ถูกจัดเข้า cluster {cluster_id} ซึ่งมีผู้ใช้เดิม {cluster.get('cluster_size')} คนครับ")
+            lines.append(f"\nหมายเหตุ: ความต้องการนี้ใกล้กับกลุ่มผู้ใช้ cluster {cluster_id} ที่มีผู้ใช้เดิม {cluster.get('cluster_size')} คนครับ")
         return "\n".join(lines)
+
+    def _fallback_evidence_reasons(
+        self,
+        item_evidence: dict[str, Any],
+        preferences: dict[str, Any],
+    ) -> list[str]:
+        evidence = item_evidence.get("evidence", {}) if item_evidence else {}
+        reasons: list[str] = []
+
+        usage = set(preferences.get("usage_fit") or [])
+        if usage:
+            use_case = evidence.get("use_case", [])
+            if use_case:
+                reasons.append(f"การใช้งานที่ระบุมาเข้ากับจุดเด่นเรื่อง {self._format_evidence_values(use_case[:3])}")
+
+        style = evidence.get("style", [])
+        if style and preferences.get("style"):
+            reasons.append(f"โทนรถไปทาง {self._format_evidence_values(style[:3])} ซึ่งใกล้กับสไตล์ที่คุณบอก")
+
+        performance = evidence.get("performance", [])
+        if performance and preferences.get("performance") not in {None, "unknown", ""}:
+            reasons.append(f"ด้านการขับขี่มีข้อมูลเด่นเรื่อง {self._format_evidence_values(performance[:3])}")
+
+        comfort = evidence.get("comfort", [])
+        if comfort and preferences.get("comfort") not in {None, "unknown", ""}:
+            reasons.append(f"เรื่องความสบายมีจุดที่น่าดูคือ {self._format_evidence_values(comfort[:3])}")
+
+        safety = evidence.get("safety", [])
+        if safety and preferences.get("safety_level") not in {None, "unknown", ""}:
+            reasons.append(f"ฝั่งความปลอดภัยมี {self._format_evidence_values(safety[:3])}")
+
+        efficiency = evidence.get("efficiency", [])
+        if efficiency and preferences.get("fuel_saving") is True:
+            reasons.append(f"ถ้าอยากประหยัดน้ำมัน รุ่นนี้มีข้อมูลเรื่อง {self._format_evidence_values(efficiency[:2])}")
+
+        storage = evidence.get("storage", [])
+        if storage and preferences.get("storage_need") is True:
+            reasons.append(f"เรื่องพื้นที่เก็บของมี {self._format_evidence_values(storage[:2])}")
+
+        if not reasons:
+            summary = item_evidence.get("summary_text")
+            if summary:
+                first_line = str(summary).splitlines()[0]
+                reasons.append(first_line)
+
+        return reasons
+
+    def _short_candidate_reason(self, item_evidence: dict[str, Any]) -> str:
+        evidence = item_evidence.get("evidence", {}) if item_evidence else {}
+        for key in ["use_case", "style", "comfort", "performance", "safety", "efficiency", "storage"]:
+            values = evidence.get(key, [])
+            if values:
+                return f"เด่นเรื่อง {self._format_evidence_values(values[:2])}"
+        return ""
+
+    def _format_evidence_values(self, values: list[Any]) -> str:
+        label_map = {
+            "city": "ขี่ในเมือง",
+            "daily": "ใช้งานทุกวัน",
+            "delivery": "ส่งของ",
+            "family": "ใช้กับครอบครัว",
+            "long_distance": "เดินทางไกล",
+            "rough_road": "ถนนขรุขระ",
+            "shopping": "ซื้อของ/จ่ายตลาด",
+            "storage_heavy": "บรรทุกของเยอะ",
+            "trip": "ออกทริป",
+            "work": "ไปทำงาน",
+            "sporty": "สปอร์ต",
+            "premium": "พรีเมียม",
+            "classic": "คลาสสิก",
+            "modern": "โมเดิร์น",
+            "compact": "กะทัดรัด",
+            "adventure": "สายลุย",
+            "beauty": "ดีไซน์สวย",
+            "cute": "น่ารัก",
+            "performance_low": "ขี่เรื่อยๆ ไม่เน้นแรง",
+            "performance_medium": "แรงพอประมาณ",
+            "performance_high": "อัตราเร่งดี",
+            "comfort_low": "ความสบายพื้นฐาน",
+            "comfort_medium": "นั่งสบายพอประมาณ",
+            "comfort_high": "นั่งสบาย",
+            "safety_low": "ความปลอดภัยพื้นฐาน",
+            "safety_medium": "ความปลอดภัยระดับกลาง",
+            "safety_high": "ความปลอดภัยสูง",
+            "fuel_saving": "ประหยัดน้ำมัน",
+            "storage_need": "มีพื้นที่เก็บของ",
+            "easy_to_ride": "ขี่ง่าย",
+            "maintenance_easy": "ดูแลง่าย",
+        }
+        formatted = []
+        for value in values:
+            token = str(value).strip()
+            if not token:
+                continue
+            formatted.append(label_map.get(token, token.replace("_", " ")))
+        return ", ".join(formatted)
 
     def _fallback_opening(
         self,

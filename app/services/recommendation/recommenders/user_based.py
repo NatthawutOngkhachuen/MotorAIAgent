@@ -45,7 +45,10 @@ class UserBasedRecommender:
         sims = cosine_similarity(query, x)[0]
 
         ranked = vectors.assign(similarity=sims).sort_values("similarity", ascending=False)
-        candidates = self._candidates_from_rows(ranked.head(top_k), method="nearest_user")
+        candidates = self._dedupe_candidates(
+            self._candidates_from_rows(ranked, method="nearest_user"),
+            top_k=top_k,
+        )
         best = ranked.iloc[0].to_dict()
         return {
             "method": "nearest_user",
@@ -70,17 +73,7 @@ class UserBasedRecommender:
         members = clusters[clusters["cluster"].astype(int) == cluster_id].copy()
         members = members.sort_values(["mapped_model", "user_id"])
         candidates = self._candidates_from_rows(members, method="cluster_member")
-
-        deduped: list[dict[str, Any]] = []
-        seen_items: set[str] = set()
-        for candidate in candidates:
-            item_id = str(candidate.get("item_id"))
-            if item_id not in seen_items:
-                seen_items.add(item_id)
-                candidate["rank"] = len(deduped) + 1
-                deduped.append(candidate)
-            if len(deduped) >= top_k:
-                break
+        deduped = self._dedupe_candidates(candidates, top_k=top_k)
 
         return {
             "method": "cluster",
@@ -128,6 +121,20 @@ class UserBasedRecommender:
                 }
             )
         return candidates
+
+    def _dedupe_candidates(self, candidates: list[dict[str, Any]], top_k: int) -> list[dict[str, Any]]:
+        deduped: list[dict[str, Any]] = []
+        seen_items: set[str] = set()
+        for candidate in candidates:
+            item_id = str(candidate.get("item_id"))
+            if item_id in seen_items:
+                continue
+            seen_items.add(item_id)
+            candidate["rank"] = len(deduped) + 1
+            deduped.append(candidate)
+            if len(deduped) >= top_k:
+                break
+        return deduped
 
 
 def parse_vector_string(value: str) -> list[float]:

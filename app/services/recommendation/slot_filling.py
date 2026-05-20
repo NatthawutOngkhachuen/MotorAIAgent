@@ -15,12 +15,8 @@ from app.services.recommendation.vectorizer import (
 
 QUESTION_FLOW = [
     (
-        ["budget_level"],
-        "สวัสดีครับ ผมช่วยแนะนำรถที่เหมาะกับคุณได้ เดี๋ยวขอถามสั้นๆ ประมาณ 6-7 ข้อก่อนนะครับ ตอนนี้กำลังมองหารถประมาณงบน้อย งบกลาง หรือจัดตัวสูงได้เลยครับ?",
-    ),
-    (
         ["usage_fit"],
-        "ปกติจะใช้รถแบบไหนบ้างครับ เช่น ขี่ในเมือง ใช้ทุกวัน ไปทำงาน ออกทริป ส่งของ หรือเจอถนนขรุขระ?",
+        "สวัสดีครับ ผมช่วยแนะนำรถที่เหมาะกับคุณได้ เดี๋ยวขอถามสั้นๆ ประมาณ 4-5 ข้อก่อนนะครับ ปกติจะใช้รถแบบไหนบ้าง เช่น ขี่ในเมือง ใช้ทุกวัน ไปทำงาน ออกทริป ส่งของ หรือเจอถนนขรุขระ?",
     ),
     (
         ["style"],
@@ -28,21 +24,24 @@ QUESTION_FLOW = [
     ),
     (
         ["performance", "comfort"],
-        "อยากได้รถที่เน้นแรง/อัตราเร่งมากแค่ไหน และความสบายสำคัญประมาณไหนครับ?",
+        "เวลาเร่งแซงหรือออกตัว อยากได้ประมาณไหนครับ: ขอแค่ขี่เรื่อยๆ ก็พอ, ขอแรงพอประมาณ, หรืออยากได้แรงๆ และเวลานั่งอยากได้สบายมากไหมครับ?",
     ),
     (
-        ["safety_level", "technology_level"],
-        "ให้ความสำคัญกับความปลอดภัยและเทคโนโลยีมากแค่ไหนครับ ต่ำ กลาง หรือสูง?",
+        ["safety_level", "easy_to_ride"],
+        "ให้ความสำคัญกับความปลอดภัยมากแค่ไหนครับ ต่ำ กลาง หรือสูง และอยากได้รถที่ขี่ง่ายเป็นพิเศษไหมครับ?",
     ),
     (
-        ["easy_to_ride", "fuel_saving"],
-        "อยากได้รถที่ขี่ง่ายและประหยัดน้ำมันเป็นพิเศษไหมครับ?",
-    ),
-    (
-        ["storage_need", "maintenance_easy"],
-        "ต้องการพื้นที่เก็บของเยอะ หรืออยากได้รถที่ดูแลง่ายเป็นพิเศษไหมครับ?",
+        ["fuel_saving", "storage_need"],
+        "อยากได้รถที่ประหยัดน้ำมันเป็นพิเศษไหมครับ และต้องการพื้นที่เก็บของเยอะประมาณไหน?",
     ),
 ]
+
+
+CONVERSATION_DEFAULT_ZERO_SLOTS = {
+    "budget_level": "unknown",
+    "technology_level": "unknown",
+    "maintenance_easy": "unknown",
+}
 
 
 YES_WORDS = {"ใช่", "เอา", "ต้องการ", "โอเค", "ok", "yes", "y", "ครับ", "ค่ะ", "ได้"}
@@ -92,6 +91,7 @@ class SlotFillingService:
             session_id=session_id,
         )
         state.preferences = merge_preferences(state.preferences, extracted)
+        self._apply_conversation_defaults(state.preferences)
         state.is_complete = self.is_complete(state.preferences)
 
         if state.is_complete:
@@ -122,6 +122,7 @@ class SlotFillingService:
                 state, _ = self.handle_message(content, state)
 
         state.is_complete = self.is_complete(state.preferences)
+        self._apply_conversation_defaults(state.preferences)
         return state
 
     def extract_preferences(
@@ -177,7 +178,12 @@ class SlotFillingService:
         return all(self._slots_complete(preferences, slots) for slots, _ in QUESTION_FLOW)
 
     def build_vector(self, preferences: dict[str, Any]) -> list[float]:
-        return preference_to_vector(preferences)
+        cleaned = dict(preferences or {})
+        self._apply_conversation_defaults(cleaned)
+        return preference_to_vector(cleaned)
+
+    def _apply_conversation_defaults(self, preferences: dict[str, Any]) -> None:
+        preferences.update(CONVERSATION_DEFAULT_ZERO_SLOTS)
 
     def _slots_complete(self, preferences: dict[str, Any], slots: list[str]) -> bool:
         for slot in slots:
@@ -205,8 +211,6 @@ class SlotFillingService:
         for slot in last_asked_slots:
             if slot in BOOL_FEATURES:
                 result[slot] = value
-            elif slot in LEVEL_FEATURES and value:
-                result[slot] = "medium"
 
     def _extract_budget(self, text: str, result: dict[str, Any]) -> None:
         if any(word in text for word in ["ไม่แพง", "ถูก", "งบน้อย", "งบไม่สูง", "ราคาประหยัด", "low"]):
