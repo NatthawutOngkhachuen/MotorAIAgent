@@ -11,7 +11,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from app.services.ollama_client import get_ollama_base_url, make_chat_ollama
 from app.services.recommendation.langchain_slot_extractor import LangChainSlotExtractor
 from app.services.recommendation.recommenders.user_based import UserBasedRecommender
-from app.services.recommendation.slot_filling import SlotFillingService
+from app.services.recommendation.slot_filling import SlotFillingService, SlotFillingState
 
 
 load_dotenv()
@@ -63,7 +63,28 @@ class UserPreferenceChatService:
             return
 
         history = db["load_all_messages"](session_id, user_id)
-        state = self.slot_service.rebuild_state_from_messages(history)
+        latest_state = db["load_latest_slot_state"](session_id, user_id)
+        if latest_state:
+            state = SlotFillingState.from_dict(latest_state)
+        else:
+            state = self.slot_service.rebuild_state_from_messages(history)
+
+        if state.is_complete:
+            follow_up_question, new_state = self.slot_service.start_follow_up()
+            db["save_message"](session_id, user_id, "user", question)
+            yield self._event("metadata", {"stage": "slot_filling", "state": new_state.to_dict()})
+            yield self._event("token", {"token": follow_up_question})
+            db["save_message"](
+                session_id,
+                user_id,
+                "assistant",
+                follow_up_question,
+                rag_sources=[{"source": "slot_filling", "state": new_state.to_dict()}],
+            )
+            db["update_session_active"](session_id)
+            yield self._event("done", {"elapsed": round(time.time() - started_at, 1)})
+            return
+
         state, next_question = self.slot_service.handle_message(
             question,
             state,
@@ -86,6 +107,11 @@ class UserPreferenceChatService:
             db["update_session_active"](session_id)
             yield self._event("done", {"elapsed": round(time.time() - started_at, 1)})
             return
+
+        yield self._event(
+            "thinking",
+            {"message": "ได้ครับ เดี๋ยวผมคัดรุ่นที่เข้าทางให้ อาจจะใช้เวลาสักครู่นะครับ"},
+        )
 
         nearest: dict[str, Any] | None = None
         cluster: dict[str, Any] | None = None
@@ -124,6 +150,7 @@ class UserPreferenceChatService:
             "graph_item_ids": item_ids,
             "candidate_count": len(candidates),
             "evidence_count": len(graph_evidence),
+            "analysis_label": self._analysis_label(nearest, cluster),
         }
         yield self._event("metadata", metadata)
 
@@ -173,6 +200,7 @@ class UserPreferenceChatService:
         from app.db.chat_repository import (
             create_session,
             load_all_messages,
+            load_latest_slot_state,
             save_message,
             session_belongs_to_user,
             update_session_active,
@@ -181,10 +209,22 @@ class UserPreferenceChatService:
         return {
             "create_session": create_session,
             "load_all_messages": load_all_messages,
+            "load_latest_slot_state": load_latest_slot_state,
             "save_message": save_message,
             "session_belongs_to_user": session_belongs_to_user,
             "update_session_active": update_session_active,
         }
+
+    def _analysis_label(
+        self,
+        nearest: dict[str, Any] | None,
+        cluster: dict[str, Any] | None,
+    ) -> str | None:
+        if nearest and nearest.get("matched_user_id"):
+            return f"UID {nearest.get('matched_user_id')}"
+        if cluster and cluster.get("cluster") is not None:
+            return f"cluster {cluster.get('cluster')}"
+        return None
 
     def _graph_retriever(self) -> Any:
         from app.services.recommendation.graph_retriever import GraphRetriever
@@ -211,7 +251,6 @@ class UserPreferenceChatService:
             base_url=get_ollama_base_url(),
             temperature=0.4,
             num_predict=int(os.getenv("FINAL_RECOMMENDATION_NUM_PREDICT", "260")),
-            timeout=int(os.getenv("FINAL_RECOMMENDATION_TIMEOUT_SECONDS", "8")),
         )
         prompt = self._build_final_prompt(user_message, preferences, nearest, cluster, candidates, graph_evidence)
 
@@ -246,25 +285,20 @@ class UserPreferenceChatService:
         context = {
             "latest_user_message": user_message,
             "preferences": preferences,
-            "nearest_user_result": {
-                "matched_user_id": nearest.get("matched_user_id") if nearest else None,
-                "matched_similarity": nearest.get("matched_similarity") if nearest else None,
-            },
-            "cluster_result": None if cluster is None else {
-                "cluster": cluster.get("cluster"),
-                "cluster_similarity": cluster.get("cluster_similarity"),
-                "cluster_size": cluster.get("cluster_size"),
-            },
             "candidates": candidates,
-            "graph_evidence": graph_evidence,
+            "relevant_graph_evidence": self._filter_graph_evidence_for_preferences(
+                graph_evidence,
+                preferences,
+            ),
         }
         return (
-            "สรุปคำแนะนำรถจาก context ต่อไปนี้ให้ผู้ใช้เข้าใจง่าย "
-            "ให้เหมือนผู้ช่วยที่เข้าใจบริบท ไม่ใช่รายงานจากระบบ "
-            "เริ่มด้วยประโยคสั้นๆ ว่ารุ่นไหนน่าเริ่มดูที่สุดและเพราะอะไร "
-            "จากนั้นให้เหตุผล 2-3 ข้อโดยอ้างอิง graph_evidence เช่น เหมาะกับการใช้งาน สไตล์ ความสบาย ความปลอดภัย หรือความประหยัด "
-            "ปิดท้ายด้วยตัวเลือกสำรองไม่เกิน 2 รุ่นถ้ามีเหตุผลจาก evidence รองรับ "
-            "ห้ามพูดว่าระบบ/GraphRAG/evidence และห้ามใส่รายละเอียดที่ไม่มีใน evidence\n\n"
+            "ช่วยแนะนำรถมอเตอร์ไซค์ให้ลูกค้าเป็นภาษาไทยแบบเซลล์หน้าร้านที่คุยง่าย สุภาพ และเป็นกันเอง "
+            "เริ่มด้วยรุ่นที่น่าเริ่มดูที่สุดแบบตรงๆ ไม่ต้องพูดว่ามาจากผู้ใช้เดิม UUID, cluster, ระบบ, GraphRAG หรือ evidence "
+            "ให้เหตุผล 2-3 ข้อจาก relevant_graph_evidence เท่านั้น และต้องล้อกับ preferences ที่ลูกค้าตอบไว้ "
+            "ถ้า evidence บางเรื่องไม่ตรงกับ preference เช่น ลูกค้าชอบสปอร์ตแต่ evidence พูดถึงภาพลักษณ์คลาสสิกหรือไม่ทันสมัย ห้ามใช้เรื่องนั้นเป็นเหตุผล "
+            "ถ้าไม่มี evidence ที่ตรงกับ preference ในหมวดใด ให้ข้ามหมวดนั้นไป "
+            "ปิดท้ายด้วยตัวเลือกสำรองไม่เกิน 2 รุ่นแบบสั้นๆ ถ้ามีเหตุผลที่ตรงกับ preference รองรับ "
+            "ห้ามใส่รายละเอียดที่ไม่มีใน context และอย่าเขียนเหมือนรายงาน\n\n"
             + json.dumps(context, ensure_ascii=False)
         )
 
@@ -288,12 +322,12 @@ class UserPreferenceChatService:
         lines = [
             self._fallback_opening(first, nearest, cluster),
             "",
-            "เหตุผลที่รุ่นนี้เข้าทางคุณ:",
+            "เหตุผลที่ผมว่าน่าเริ่มดู:",
         ]
         if reasons:
             lines.extend(f"- {reason}" for reason in reasons[:3])
         else:
-            lines.append("- โปรไฟล์ความต้องการของคุณใกล้กับผู้ใช้เดิมที่เลือกรุ่นนี้ จึงเป็นรุ่นที่ควรเริ่มลองดูครับ")
+            lines.append("- โดยรวมแล้วเป็นตัวเลือกที่เข้ากับโจทย์ที่ให้มา และน่าเริ่มลองเทียบฟีลขับครับ")
 
         alternatives = candidates[1:3]
         if alternatives:
@@ -302,15 +336,11 @@ class UserPreferenceChatService:
                 price = candidate.get("price_est_thb")
                 price_text = f" ราคาโดยประมาณ {int(price):,} บาท" if str(price).isdigit() else ""
                 item_evidence = evidence_by_item_id.get(str(candidate.get("item_id")), {})
-                reason = self._short_candidate_reason(item_evidence)
+                reason = self._short_candidate_reason(item_evidence, preferences)
                 suffix = f" - {reason}" if reason else ""
                 lines.append(f"- {candidate.get('brand') or ''} {candidate.get('model')}{price_text}{suffix}".strip())
 
-        lines.extend(["", "ผมแนะนำให้ใช้รุ่นแรกเป็นจุดเริ่มต้น แล้วค่อยเทียบฟีลนั่งกับตัวเลือกสำรองครับ"])
-
-        cluster_id = cluster.get("cluster") if cluster else None
-        if cluster_id is not None:
-            lines.append(f"\nหมายเหตุ: ความต้องการนี้ใกล้กับกลุ่มผู้ใช้ cluster {cluster_id} ที่มีผู้ใช้เดิม {cluster.get('cluster_size')} คนครับ")
+        lines.extend(["", "ผมแนะนำให้ใช้รุ่นแรกเป็นตัวตั้ง แล้วลองเทียบฟีลนั่งกับตัวสำรองอีกทีครับ"])
         return "\n".join(lines)
 
     def _fallback_evidence_reasons(
@@ -323,49 +353,136 @@ class UserPreferenceChatService:
 
         usage = set(preferences.get("usage_fit") or [])
         if usage:
-            use_case = evidence.get("use_case", [])
+            use_case = self._matching_values("use_case", evidence.get("use_case", []), preferences)
             if use_case:
-                reasons.append(f"การใช้งานที่ระบุมาเข้ากับจุดเด่นเรื่อง {self._format_evidence_values(use_case[:3])}")
+                reasons.append(f"เข้ากับการใช้งานที่บอกมา เช่น {self._format_evidence_values(use_case[:3])}")
 
-        style = evidence.get("style", [])
+        style = self._matching_values("style", evidence.get("style", []), preferences)
         if style and preferences.get("style"):
-            reasons.append(f"โทนรถไปทาง {self._format_evidence_values(style[:3])} ซึ่งใกล้กับสไตล์ที่คุณบอก")
+            reasons.append(f"สไตล์ไปทาง {self._format_evidence_values(style[:3])} ซึ่งตรงกับแนวที่ชอบ")
 
-        performance = evidence.get("performance", [])
+        performance = self._matching_values("performance", evidence.get("performance", []), preferences)
         if performance and preferences.get("performance") not in {None, "unknown", ""}:
-            reasons.append(f"ด้านการขับขี่มีข้อมูลเด่นเรื่อง {self._format_evidence_values(performance[:3])}")
+            reasons.append(f"ฟีลขับตอบโจทย์เรื่อง {self._format_evidence_values(performance[:3])}")
 
-        comfort = evidence.get("comfort", [])
+        comfort = self._matching_values("comfort", evidence.get("comfort", []), preferences)
         if comfort and preferences.get("comfort") not in {None, "unknown", ""}:
-            reasons.append(f"เรื่องความสบายมีจุดที่น่าดูคือ {self._format_evidence_values(comfort[:3])}")
+            reasons.append(f"เรื่องความสบายมีจุดที่น่าดู เช่น {self._format_evidence_values(comfort[:3])}")
 
-        safety = evidence.get("safety", [])
+        safety = self._matching_values("safety", evidence.get("safety", []), preferences)
         if safety and preferences.get("safety_level") not in {None, "unknown", ""}:
             reasons.append(f"ฝั่งความปลอดภัยมี {self._format_evidence_values(safety[:3])}")
 
-        efficiency = evidence.get("efficiency", [])
+        efficiency = self._matching_values("efficiency", evidence.get("efficiency", []), preferences)
         if efficiency and preferences.get("fuel_saving") is True:
-            reasons.append(f"ถ้าอยากประหยัดน้ำมัน รุ่นนี้มีข้อมูลเรื่อง {self._format_evidence_values(efficiency[:2])}")
+            reasons.append(f"ถ้าเน้นประหยัดน้ำมัน รุ่นนี้มีจุดเด่นเรื่อง {self._format_evidence_values(efficiency[:2])}")
 
-        storage = evidence.get("storage", [])
+        storage = self._matching_values("storage", evidence.get("storage", []), preferences)
         if storage and preferences.get("storage_need") is True:
             reasons.append(f"เรื่องพื้นที่เก็บของมี {self._format_evidence_values(storage[:2])}")
 
-        if not reasons:
-            summary = item_evidence.get("summary_text")
-            if summary:
-                first_line = str(summary).splitlines()[0]
-                reasons.append(first_line)
-
         return reasons
 
-    def _short_candidate_reason(self, item_evidence: dict[str, Any]) -> str:
+    def _short_candidate_reason(self, item_evidence: dict[str, Any], preferences: dict[str, Any]) -> str:
         evidence = item_evidence.get("evidence", {}) if item_evidence else {}
         for key in ["use_case", "style", "comfort", "performance", "safety", "efficiency", "storage"]:
-            values = evidence.get(key, [])
+            values = self._matching_values(key, evidence.get(key, []), preferences)
             if values:
                 return f"เด่นเรื่อง {self._format_evidence_values(values[:2])}"
         return ""
+
+    def _filter_graph_evidence_for_preferences(
+        self,
+        graph_evidence: list[dict[str, Any]],
+        preferences: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        filtered = []
+        for item in graph_evidence:
+            evidence = item.get("evidence", {}) if item else {}
+            relevant_evidence: dict[str, list[Any]] = {}
+            for key in ["use_case", "style", "comfort", "performance", "safety", "efficiency", "storage"]:
+                values = self._matching_values(key, evidence.get(key, []), preferences)
+                if values:
+                    relevant_evidence[key] = values[:4]
+            filtered.append(
+                {
+                    "item_id": item.get("item_id"),
+                    "brand": item.get("brand"),
+                    "model": item.get("model"),
+                    "summary_text": "",
+                    "evidence": relevant_evidence,
+                }
+            )
+        return filtered
+
+    def _matching_values(
+        self,
+        key: str,
+        values: list[Any],
+        preferences: dict[str, Any],
+    ) -> list[Any]:
+        if not values:
+            return []
+        if key == "use_case":
+            allowed = set(preferences.get("usage_fit") or [])
+            return self._values_matching_tokens(values, allowed)
+        if key == "style":
+            allowed = set(preferences.get("style") or [])
+            return self._values_matching_tokens(values, allowed)
+        if key == "performance":
+            return self._values_matching_tokens(values, {f"performance_{preferences.get('performance')}"})
+        if key == "comfort":
+            return self._values_matching_tokens(values, {f"comfort_{preferences.get('comfort')}"})
+        if key == "safety":
+            return self._values_matching_tokens(values, {f"safety_{preferences.get('safety_level')}"})
+        if key == "efficiency" and preferences.get("fuel_saving") is True:
+            return list(values)
+        if key == "storage" and preferences.get("storage_need") is True:
+            return list(values)
+        return []
+
+    def _values_matching_tokens(self, values: list[Any], allowed_tokens: set[str]) -> list[Any]:
+        allowed_tokens = {token for token in allowed_tokens if token and "unknown" not in token}
+        if not allowed_tokens:
+            return []
+        aliases = {
+            "city": ["city", "ในเมือง", "เมือง", "รถติด"],
+            "daily": ["daily", "ทุกวัน", "ประจำวัน"],
+            "delivery": ["delivery", "ส่งของ", "เดลิเวอรี่", "ไรเดอร์", "grab"],
+            "family": ["family", "ครอบครัว", "คนซ้อน"],
+            "long_distance": ["long_distance", "เดินทางไกล", "ทางไกล", "ต่างจังหวัด"],
+            "rough_road": ["rough_road", "ขรุขระ", "ถนนไม่ดี", "ลุย", "ทางดิน"],
+            "shopping": ["shopping", "ซื้อของ", "จ่ายตลาด"],
+            "storage_heavy": ["storage_heavy", "บรรทุก", "ของเยอะ"],
+            "trip": ["trip", "ทริป", "เที่ยว"],
+            "work": ["work", "ทำงาน", "ใช้งาน"],
+            "sporty": ["sporty", "สปอร์ต", "เท่", "วัยรุ่น", "แรง"],
+            "modern": ["modern", "โมเดิร์น", "ทันสมัย"],
+            "premium": ["premium", "พรีเมียม", "หรู", "ดูดี"],
+            "classic": ["classic", "คลาสสิก", "วินเทจ", "ย้อนยุค", "ตำนาน"],
+            "compact": ["compact", "กะทัดรัด", "คันเล็ก", "เบา", "คล่อง"],
+            "adventure": ["adventure", "สายลุย", "แอดเวนเจอร์", "ลุย"],
+            "beauty": ["beauty", "สวย", "แฟชั่น", "ดีไซน์"],
+            "cute": ["cute", "น่ารัก"],
+            "performance_low": ["performance_low", "ไม่เน้นแรง", "ขี่เรื่อย", "ขี่ช้า"],
+            "performance_medium": ["performance_medium", "แรงพอประมาณ", "ขี่ทั่วไป"],
+            "performance_high": ["performance_high", "อัตราเร่ง", "แรง", "เร็ว", "ออกตัวไว"],
+            "comfort_low": ["comfort_low", "พื้นฐาน"],
+            "comfort_medium": ["comfort_medium", "พอประมาณ", "กลาง"],
+            "comfort_high": ["comfort_high", "นั่งสบาย", "สบาย"],
+            "safety_low": ["safety_low", "พื้นฐาน"],
+            "safety_medium": ["safety_medium", "ระดับกลาง", "กลาง"],
+            "safety_high": ["safety_high", "ปลอดภัยสูง", "abs", "ความปลอดภัยสูง"],
+        }
+        keywords = []
+        for token in allowed_tokens:
+            keywords.extend(aliases.get(token, [token]))
+        matches = []
+        for value in values:
+            text = str(value).strip().lower()
+            if any(keyword.lower() in text for keyword in keywords):
+                matches.append(value)
+        return matches
 
     def _format_evidence_values(self, values: list[Any]) -> str:
         label_map = {
@@ -416,17 +533,7 @@ class UserPreferenceChatService:
         cluster: dict[str, Any] | None,
     ) -> str:
         display_name = f"{first.get('brand') or ''} {first.get('model')}".strip()
-        if nearest:
-            return (
-                f"จากคำตอบที่ให้มา รุ่นที่น่าเริ่มดูที่สุดคือ {display_name} "
-                f"เพราะใกล้กับผู้ใช้เดิม {nearest.get('matched_user_id')} มากที่สุดครับ"
-            )
-        if cluster:
-            return (
-                f"จากคำตอบที่ให้มา รุ่นที่น่าเริ่มดูที่สุดคือ {display_name} "
-                f"เพราะอยู่ในกลุ่มผู้ใช้ cluster {cluster.get('cluster')} ที่ใกล้กับคุณที่สุดครับ"
-            )
-        return f"จากคำตอบที่ให้มา รุ่นที่น่าเริ่มดูที่สุดคือ {display_name} ครับ"
+        return f"จากโจทย์ที่ให้มา ผมว่า {display_name} น่าเริ่มดูที่สุดครับ"
 
     def _event(self, event_type: str, payload: dict[str, Any]) -> str:
         data = {"type": event_type, **payload}

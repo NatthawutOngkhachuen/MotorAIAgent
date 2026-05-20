@@ -92,6 +92,7 @@
     }
     .msg.user .bubble { background: #4f46e5; color: #fff; border-top-right-radius: 3px; }
     .msg.bot  .bubble { background: #fff; color: #1a1a2e; border: 1px solid #e2e8f0; border-top-left-radius: 3px; }
+    .msg.bot .bubble.thinking { color: #64748b; background: #f8fafc; font-style: italic; }
     .meta { font-size: 11px; color: #94a3b8; margin-top: 8px; border-top: 1px solid #f1f5f9; padding-top: 6px; }
 
     .cursor {
@@ -278,7 +279,7 @@
       send:        'ส่ง',
       welcome:     'บอกความต้องการของคุณ แล้วเราจะแนะนำรถที่เหมาะกับคุณ',
       welcomeSub:  'เช่น "ผู้หญิง ชอบทรงน่ารัก" หรือ "ใช้ทางไกล ต้องการความปลอดภัยสูง"',
-      usedData:    (n, t) => `📊 วิเคราะห์จาก ${n} รุ่น · ตอบใน ${t} วินาที`,
+      usedData:    (source, t) => `📊 วิเคราะห์จาก ${source || 'ข้อมูลรุ่นรถ'} · ตอบใน ${t} วินาที`,
       error:       '❌ เชื่อมต่อ server ไม่ได้: ',
     },
     en: {
@@ -286,7 +287,7 @@
       send:        'Send',
       welcome:     "Tell us what you need and we'll recommend the perfect bike.",
       welcomeSub:  'e.g. "Female rider, cute style" or "Long distance, high safety"',
-      usedData:    (n, t) => `📊 Analyzed from ${n} models · responded in ${t}s`,
+      usedData:    (source, t) => `📊 Analyzed from ${source || 'vehicle data'} · responded in ${t}s`,
       error:       '❌ Cannot connect to server: ',
     },
   };
@@ -455,9 +456,10 @@
     bubble.textContent = 'กำลังวิเคราะห์คำตอบ...';
     bubble.appendChild(cursor);
 
-    let modelCount  = 0;
+    let analysisSource = 'ข้อมูลรุ่นรถ';
     let fullText    = '';
     let pendingText = '';
+    let showingThinking = true;
 
     try {
       const body = { question, language: currentLang };
@@ -474,7 +476,6 @@
 
       function handleStreamEvent(event) {
         if (event.type === 'session') {
-          modelCount = event.model_count || modelCount;
           if (!currentSession) {
             currentSession = event.session_id;
             localStorage.setItem('last_session', currentSession);
@@ -482,25 +483,39 @@
             addSession(currentSession, title);
             renderSidebar();
           }
+        } else if (event.type === 'thinking') {
+          showingThinking = true;
+          fullText = '';
+          bubble.classList.add('thinking');
+          bubble.textContent = event.message || 'กำลังคัดรุ่นที่เข้าทางให้ครับ';
+          bubble.appendChild(cursor);
+          chatWindow.scrollTop = chatWindow.scrollHeight;
         } else if (event.type === 'token') {
+          if (showingThinking) {
+            bubble.classList.remove('thinking');
+            bubble.textContent = '';
+            showingThinking = false;
+          }
           fullText += event.token || '';
           bubble.textContent = fullText;
           bubble.appendChild(cursor);
           chatWindow.scrollTop = chatWindow.scrollHeight;
         } else if (event.type === 'metadata') {
-          modelCount = event.candidate_count || modelCount;
+          analysisSource = event.analysis_label || (event.candidate_count ? `${event.candidate_count} รุ่น` : analysisSource);
         } else if (event.type === 'error') {
           cursor.remove();
+          bubble.classList.remove('thinking');
           bubble.textContent = event.message || 'เกิดข้อผิดพลาดในการประมวลผลคำถามครับ';
           fullText = bubble.textContent;
         } else if (event.type === 'done') {
           cursor.remove();
           if (!fullText) {
+            bubble.classList.remove('thinking');
             bubble.textContent = 'ตอนนี้ระบบยังไม่ได้รับคำตอบจากโมเดลครับ ลองถามใหม่อีกครั้งได้ไหมครับ';
           }
           const m = document.createElement('div');
           m.className   = 'meta';
-          m.textContent = i18n[currentLang].usedData(modelCount, event.elapsed);
+          m.textContent = i18n[currentLang].usedData(analysisSource, event.elapsed);
           bubble.appendChild(m);
           refreshSessions().catch(() => {});
         }
@@ -586,6 +601,7 @@
       }
     } catch (err) {
       cursor.remove();
+      bubble.classList.remove('thinking');
       bubble.textContent = i18n[currentLang].error + err.message;
     }
 

@@ -172,13 +172,20 @@ Meaning guide:
 - แรงมาก, อัตราเร่งดี -> performance high
 - แรงพอประมาณ -> performance medium
 - ไม่เน้นแรง -> performance low
+- เน้นความเร็ว, เร็ว, ออกตัวไว -> performance high
+- ขี่ทั่วไป, ทั่วไป, กลางๆ, ปกติ, ชิลๆ -> performance medium
+- ขี่ช้า, ช้า, เรื่อยๆ -> performance low
 - นั่งสบาย, ขับสบาย, ซ้อนสบาย -> comfort high
+- ถ้าคำถามล่าสุดถามเรื่องความสบาย: น้อย -> comfort low, กลาง -> comfort medium, มาก -> comfort high
 - ปลอดภัยสูง, ABS -> safety_level high
+- ถ้าคำถามล่าสุดถามเรื่องความปลอดภัย: ต่ำ -> safety_level low, กลาง -> safety_level medium, สูง -> safety_level high
 - ฟีเจอร์เยอะ, smart key, จอ -> technology_level high
 - ขี่ง่าย, มือใหม่ -> easy_to_ride true
 - ประหยัดน้ำมัน, ไม่กินน้ำมัน -> fuel_saving true
 - เก็บของ, ใส่ของ, บรรทุก -> storage_need true
 - ดูแลง่าย, ไม่จุกจิก, ไม่ซ่อมบ่อย -> maintenance_easy true
+- ถ้าคำถามล่าสุดถามฟังก์ชันใช้งาน: 1 -> easy_to_ride true, 2 -> fuel_saving true, 3 -> storage_need true, 4 -> maintenance_easy true
+- ถ้าผู้ใช้ตอบ เอาหมด/ทั้งหมด/ทุกข้อ ในคำถามฟังก์ชัน ให้ set boolean ทั้งหมดที่ถามเป็น true
 
 ตอบ JSON object เท่านั้น ห้าม markdown ห้ามคำอธิบาย
         """.strip()
