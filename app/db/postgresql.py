@@ -5,28 +5,38 @@ from psycopg2 import pool as pg_pool
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-required_env = [
-    "POSTGRES_HOST",
-    "POSTGRES_PORT",
-    "POSTGRES_DB",
-    "POSTGRES_USER",
-    "POSTGRES_PASSWORD",
-]
+database_url = os.getenv("DATABASE_URL")
 
-missing = [key for key in required_env if not os.getenv(key)]
-if missing:
-    raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
+if database_url:
+    _pool = pg_pool.SimpleConnectionPool(
+        minconn=1,
+        maxconn=5,
+        dsn=database_url,
+        sslmode=os.getenv("POSTGRES_SSLMODE", "require"),
+    )
+else:
+    required_env = [
+        "POSTGRES_HOST",
+        "POSTGRES_PORT",
+        "POSTGRES_DB",
+        "POSTGRES_USER",
+        "POSTGRES_PASSWORD",
+    ]
 
-_pool = pg_pool.SimpleConnectionPool(
-    minconn=1,
-    maxconn=5,
-    host=os.getenv("POSTGRES_HOST"),
-    port=int(os.getenv("POSTGRES_PORT")),
-    dbname=os.getenv("POSTGRES_DB"),
-    user=os.getenv("POSTGRES_USER"),
-    password=os.getenv("POSTGRES_PASSWORD"),
-    sslmode=os.getenv("POSTGRES_SSLMODE", "prefer"),
-)
+    missing = [key for key in required_env if not os.getenv(key)]
+    if missing:
+        raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
+
+    _pool = pg_pool.SimpleConnectionPool(
+        minconn=1,
+        maxconn=5,
+        host=os.getenv("POSTGRES_HOST"),
+        port=int(os.getenv("POSTGRES_PORT")),
+        dbname=os.getenv("POSTGRES_DB"),
+        user=os.getenv("POSTGRES_USER"),
+        password=os.getenv("POSTGRES_PASSWORD"),
+        sslmode=os.getenv("POSTGRES_SSLMODE", "prefer"),
+    )
 
 print("PostgreSQL connection pool created successfully")
 
