@@ -50,4 +50,4 @@ jobs:
             echo "Missing RENDER_DEPLOY_HOOK_URL repository secret"
             exit 1
           fi
-          curl -fsS -X POST https://api.render.com/deploy/${{ secrets.DEPLOY_KEY }}
+          curl -fsS -X POST "$RENDER_DEPLOY_HOOK_URL"
