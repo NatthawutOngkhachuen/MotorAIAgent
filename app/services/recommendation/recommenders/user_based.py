@@ -60,7 +60,7 @@ class UserBasedRecommender:
     def recommend_cluster(
         self,
         preference: dict[str, Any],
-        top_k: int = 5,
+        top_k: int | None = 5,
     ) -> dict[str, Any]:
         clusters = self._load_clusters()
         centroids = self._load_centroids()
@@ -122,7 +122,7 @@ class UserBasedRecommender:
             )
         return candidates
 
-    def _dedupe_candidates(self, candidates: list[dict[str, Any]], top_k: int) -> list[dict[str, Any]]:
+    def _dedupe_candidates(self, candidates: list[dict[str, Any]], top_k: int | None) -> list[dict[str, Any]]:
         deduped: list[dict[str, Any]] = []
         seen_items: set[str] = set()
         for candidate in candidates:
@@ -132,7 +132,7 @@ class UserBasedRecommender:
             seen_items.add(item_id)
             candidate["rank"] = len(deduped) + 1
             deduped.append(candidate)
-            if len(deduped) >= top_k:
+            if top_k is not None and len(deduped) >= top_k:
                 break
         return deduped
 

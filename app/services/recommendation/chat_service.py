@@ -116,11 +116,11 @@ class UserPreferenceChatService:
         nearest: dict[str, Any] | None = None
         cluster: dict[str, Any] | None = None
         if recommendation_mode == "cluster_based":
-            cluster = self.recommender.recommend_cluster(state.preferences, top_k=5)
+            cluster = self.recommender.recommend_cluster(state.preferences, top_k=None)
             candidates = cluster["candidates"]
             source = "cluster_based_slot_filling"
         else:
-            nearest = self.recommender.recommend_nearest_user(state.preferences, top_k=3)
+            nearest = self.recommender.recommend_nearest_user(state.preferences, top_k=1)
             candidates = nearest["candidates"]
             source = "user_based_slot_filling"
 
@@ -249,29 +249,103 @@ class UserPreferenceChatService:
         llm = make_chat_ollama(
             model=os.getenv("OLLAMA_MODEL", "gpt-oss:120b"),
             base_url=get_ollama_base_url(),
-            temperature=0.4,
-            num_predict=int(os.getenv("FINAL_RECOMMENDATION_NUM_PREDICT", "260")),
+            temperature=float(os.getenv("FINAL_RECOMMENDATION_TEMPERATURE", "0.7")),
+            num_predict=int(os.getenv("FINAL_RECOMMENDATION_NUM_PREDICT", "1200")),
         )
         prompt = self._build_final_prompt(user_message, preferences, nearest, cluster, candidates, graph_evidence)
 
         try:
-            async for chunk in llm.astream(
-                [
-                    SystemMessage(
-                        content=(
-                            "You are MotorAiAgent, a Thai motorcycle recommendation assistant. "
-                            "Answer in Thai with a warm, practical, consultative tone. "
-                            "Recommend only the provided candidates. Use graph evidence explicitly when available. "
-                            "Do not invent specs. Avoid robotic phrasing."
-                        )
-                    ),
-                    HumanMessage(content=prompt),
-                ]
-            ):
-                if chunk.content:
-                    yield chunk.content
+            raw_answer = await self._complete_final_answer(llm, prompt)
+            answer = self._clean_model_answer(raw_answer)
+            if self._needs_rewrite(raw_answer, answer):
+                rewritten = await self._rewrite_final_answer(llm, prompt, raw_answer)
+                answer = self._clean_model_answer(rewritten)
+            if answer.strip():
+                yield answer
+            else:
+                yield fallback
         except Exception:
             yield fallback
+
+    async def _complete_final_answer(self, llm: Any, prompt: str) -> str:
+        parts: list[str] = []
+        async for chunk in llm.astream(
+            [
+                SystemMessage(content=self._final_answer_system_prompt()),
+                HumanMessage(content=prompt),
+            ]
+        ):
+            if chunk.content:
+                parts.append(str(chunk.content))
+        return "".join(parts)
+
+    async def _rewrite_final_answer(self, llm: Any, prompt: str, raw_answer: str) -> str:
+        rewrite_prompt = (
+            "The previous answer was not suitable for a customer. Rewrite it in natural Thai using only "
+            "the source data below. Markdown is allowed when it improves readability, including a compact table. "
+            "Do not use HTML tags or raw JSON. Do not mention internal system terms.\n\n"
+            "Source data:\n"
+            f"{prompt}\n\n"
+            "Previous answer to rewrite:\n"
+            f"{raw_answer}"
+        )
+        parts: list[str] = []
+        async for chunk in llm.astream(
+            [
+                SystemMessage(content=self._final_answer_system_prompt()),
+                HumanMessage(content=rewrite_prompt),
+            ]
+        ):
+            if chunk.content:
+                parts.append(str(chunk.content))
+        return "".join(parts)
+
+    def _final_answer_system_prompt(self) -> str:
+        return (
+            "You are MotorAiAgent, a Thai motorcycle recommendation assistant. "
+            "Answer in Thai like a thoughtful showroom consultant talking to one real customer. "
+            "Recommend only the provided candidates. Use the provided vehicle facts as grounding, "
+            "but turn them into natural advice instead of copying labels. "
+            "Do not invent specs. Avoid robotic phrasing. "
+            "Markdown is allowed when it makes the answer easier to read, including a compact table. "
+            "Do not use HTML tags, <br>, raw JSON, or dump raw data. "
+            "Do not mention GraphRAG, evidence, context, cluster, UUID, score, rank, or internal systems."
+        )
+
+    def _clean_model_answer(self, text: str) -> str:
+        replacements = {
+            "<br>": "\n",
+            "<br/>": "\n",
+            "<br />": "\n",
+            "`": "",
+        }
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+        lines = []
+        for line in text.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                if lines and lines[-1] != "":
+                    lines.append("")
+                continue
+            if set(stripped) <= {"-", " "}:
+                continue
+            lines.append(stripped)
+        return "\n".join(lines).strip()
+
+    def _needs_rewrite(self, raw_answer: str, cleaned_answer: str) -> bool:
+        raw = raw_answer.strip()
+        if len(cleaned_answer.strip()) < 80:
+            return True
+        cleaned = cleaned_answer.strip()
+        natural_endings = (".", "!", "?", "ครับ", "ค่ะ", "นะครับ", "นะคะ", ")", "]")
+        if cleaned and not cleaned.endswith(natural_endings):
+            return True
+        blocked_fragments = ["<br", "<p", "<ul", "<li", "```"]
+        if any(fragment in raw for fragment in blocked_fragments):
+            return True
+        internal_terms = ["GraphRAG", "evidence", "context", "cluster", "UUID", "score", "rank"]
+        return any(term in cleaned_answer for term in internal_terms)
 
     def _build_final_prompt(
         self,
@@ -282,25 +356,49 @@ class UserPreferenceChatService:
         candidates: list[dict[str, Any]],
         graph_evidence: list[dict[str, Any]],
     ) -> str:
+        response_candidates = candidates if cluster else candidates[:1]
+        response_item_ids = {str(candidate.get("item_id")) for candidate in response_candidates}
+        response_graph_evidence = [
+            item for item in self._filter_graph_evidence_for_preferences(graph_evidence, preferences)
+            if str(item.get("item_id")) in response_item_ids
+        ]
+        if cluster:
+            mode_rules = (
+                "Mode: cluster-based recommendation.\n"
+                "- Talk about every candidate in response_candidates. Do not skip any model.\n"
+                "- A compact Markdown table is allowed and preferred if there are many models.\n"
+                "- Give each model a short practical note, then close with which 1-2 models are the easiest to start comparing.\n"
+            )
+        else:
+            mode_rules = (
+                "Mode: user-based recommendation.\n"
+                "- Talk only about the first response_candidate, which comes from the most similar previous user.\n"
+                "- Do not discuss additional models outside this one, even if they appear elsewhere in the data.\n"
+                "- Make a clear recommendation for this one model and explain why it fits the customer.\n"
+            )
         context = {
             "latest_user_message": user_message,
             "preferences": preferences,
-            "candidates": candidates,
-            "relevant_graph_evidence": self._filter_graph_evidence_for_preferences(
-                graph_evidence,
-                preferences,
-            ),
+            "response_candidates": response_candidates,
+            "relevant_graph_evidence": response_graph_evidence,
         }
-        return (
-            "ช่วยแนะนำรถมอเตอร์ไซค์ให้ลูกค้าเป็นภาษาไทยแบบเซลล์หน้าร้านที่คุยง่าย สุภาพ และเป็นกันเอง "
-            "เริ่มด้วยรุ่นที่น่าเริ่มดูที่สุดแบบตรงๆ ไม่ต้องพูดว่ามาจากผู้ใช้เดิม UUID, cluster, ระบบ, GraphRAG หรือ evidence "
-            "ให้เหตุผล 2-3 ข้อจาก relevant_graph_evidence เท่านั้น และต้องล้อกับ preferences ที่ลูกค้าตอบไว้ "
-            "ถ้า evidence บางเรื่องไม่ตรงกับ preference เช่น ลูกค้าชอบสปอร์ตแต่ evidence พูดถึงภาพลักษณ์คลาสสิกหรือไม่ทันสมัย ห้ามใช้เรื่องนั้นเป็นเหตุผล "
-            "ถ้าไม่มี evidence ที่ตรงกับ preference ในหมวดใด ให้ข้ามหมวดนั้นไป "
-            "ปิดท้ายด้วยตัวเลือกสำรองไม่เกิน 2 รุ่นแบบสั้นๆ ถ้ามีเหตุผลที่ตรงกับ preference รองรับ "
-            "ห้ามใส่รายละเอียดที่ไม่มีใน context และอย่าเขียนเหมือนรายงาน\n\n"
-            + json.dumps(context, ensure_ascii=False)
+        prompt = (
+            "You are MotorAiAgent's showroom consultant. Answer in Thai for a real customer.\n\n"
+            f"{mode_rules}\n"
+            "Content rules:\n"
+            "- Recommend only the models in response_candidates.\n"
+            "- Use relevant_graph_evidence for grounding, but do not say evidence, context, GraphRAG, cluster, UUID, score, rank, cosine, or internal system terms.\n"
+            "- Do not invent specs, prices, features, or model names that are not in the data.\n"
+            "- If a data point is not relevant to the customer's needs, skip it.\n"
+            "- Markdown is allowed. Use it only to improve readability, not as a rigid report.\n"
+            "- Do not use HTML tags such as <br>, <p>, <ul>, or <li>. Do not output JSON.\n\n"
+            "Tone:\n"
+            "- Warm, practical, and consultative like a good motorcycle salesperson.\n"
+            "- Natural Thai. Avoid stiff template phrases.\n"
+            "- Start with the recommendation directly, then explain briefly.\n\n"
+            "Data:\n"
         )
+        return prompt + json.dumps(context, ensure_ascii=False)
 
     def _fallback_answer(
         self,
