@@ -65,3 +65,10 @@ async def delete_session(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/graph")
+async def graph():
+    try:
+        return get_full_graph()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
