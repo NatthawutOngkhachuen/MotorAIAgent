@@ -4,6 +4,7 @@ from app.api.V1.auth_dependencies import get_current_user_id
 from app.schemas.chat_schema import ChatRequest
 from app.services.chat_service import stream_answer
 from app.repositories import chat_repository as pg
+from app.services.query_service import search_by_keyword, get_full_graph
 
 router = APIRouter()
 
