@@ -5,16 +5,20 @@ from psycopg2 import pool as pg_pool
 
 load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
-database_url = os.getenv("DATABASE_URL")
+_pool = None
 
-if database_url:
-    _pool = pg_pool.SimpleConnectionPool(
-        minconn=1,
-        maxconn=5,
-        dsn=database_url,
-        sslmode=os.getenv("POSTGRES_SSLMODE", "require"),
-    )
-else:
+
+def _create_pool():
+    database_url = os.getenv("DATABASE_URL")
+
+    if database_url:
+        return pg_pool.SimpleConnectionPool(
+            minconn=1,
+            maxconn=5,
+            dsn=database_url,
+            sslmode=os.getenv("POSTGRES_SSLMODE", "require"),
+        )
+
     required_env = [
         "POSTGRES_HOST",
         "POSTGRES_PORT",
@@ -27,7 +31,7 @@ else:
     if missing:
         raise RuntimeError(f"Missing required environment variables: {', '.join(missing)}")
 
-    _pool = pg_pool.SimpleConnectionPool(
+    return pg_pool.SimpleConnectionPool(
         minconn=1,
         maxconn=5,
         host=os.getenv("POSTGRES_HOST"),
@@ -38,10 +42,18 @@ else:
         sslmode=os.getenv("POSTGRES_SSLMODE", "prefer"),
     )
 
-print("PostgreSQL connection pool created successfully")
+
+def _get_pool():
+    global _pool
+
+    if _pool is None:
+        _pool = _create_pool()
+        print("PostgreSQL connection pool created successfully")
+    return _pool
+
 
 def get_connection():
-    return _pool.getconn()
+    return _get_pool().getconn()
 
 def release_connection(conn):
-    _pool.putconn(conn)
+    _get_pool().putconn(conn)

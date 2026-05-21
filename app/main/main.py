@@ -17,3 +17,8 @@ app.add_middleware(
 app.include_router(router, prefix="/api/v1", tags=["chat"])
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(recommendation_chat_router, prefix="/api/v1")
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
