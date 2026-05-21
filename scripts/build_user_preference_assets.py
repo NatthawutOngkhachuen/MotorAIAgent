@@ -12,9 +12,7 @@ from app.services.recommendation.cluster_pipeline import run_user_vector_cluster
 from app.services.recommendation.vectorizer import FEATURE_NAMES, write_vector_outputs
 
 
-DEFAULT_SOURCE = Path(
-    r"E:\Final Project-PIM\เอกสารที่เกี่ยวข้อง\Data\Data for CF\Backbone\csv for vector\CF_NCF_Phase1_Backbone_SRO_user_feature_final_with_vector_input.csv"
-)
+DEFAULT_SOURCE = PROJECT_ROOT / "data" / "user_preferences_raw.csv"
 
 
 def main() -> None:

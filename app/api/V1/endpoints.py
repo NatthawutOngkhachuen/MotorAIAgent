@@ -1,31 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from app.api.V1.auth_dependencies import get_current_user_id
-from app.api.V1.models import SearchRequest, ChatRequest
-from app.services.query_service import search_by_keyword, get_full_graph
-from app.services.chat_service import stream_answer, clear_graph_cache
-from app.db import chat_repository as pg
+from app.schemas.chat_schema import ChatRequest
+from app.services.chat_service import stream_answer
+from app.repositories import chat_repository as pg
 
 router = APIRouter()
-
-
-@router.post("/search")
-async def search(req: SearchRequest):
-    return search_by_keyword(req.keyword)
-
-
-@router.get("/graph")
-async def graph():
-    try:
-        return get_full_graph()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.post("/graph/refresh")
-async def refresh_graph():
-    clear_graph_cache()
-    return {"status": "cache cleared"}
 
 
 @router.post("/chat")
@@ -71,15 +51,6 @@ async def list_sessions(current_user_id: str = Depends(get_current_user_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/session/new")
-async def new_session(current_user_id: str = Depends(get_current_user_id)):
-    try:
-        session_id = pg.create_session(current_user_id)
-        return {"session_id": session_id}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
 @router.delete("/session/{session_id}")
 async def delete_session(
     session_id: str,
@@ -94,12 +65,3 @@ async def delete_session(
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-@router.get("/health")
-async def health():
-    try:
-        pg.load_recent_messages("00000000-0000-0000-0000-000000000000", limit=1)
-        return {"postgresql": "ok"}
-    except Exception as e:
-        return {"postgresql": f"error: {e}"}

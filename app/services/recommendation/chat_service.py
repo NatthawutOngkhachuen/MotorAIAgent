@@ -197,7 +197,7 @@ class UserPreferenceChatService:
         return db["create_session"](user_id)
 
     def _chat_repository(self) -> dict[str, Any]:
-        from app.db.chat_repository import (
+        from app.repositories.chat_repository import (
             create_session,
             load_all_messages,
             load_latest_slot_state,

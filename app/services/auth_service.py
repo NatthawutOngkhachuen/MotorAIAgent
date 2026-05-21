@@ -1,8 +1,8 @@
 import bcrypt
 
-from app.db.auth_repository import find_auth_by_username
-from app.db.user_repository import find_user_by_id
-from app.db.auth_transaction_repository import create_user_with_auth
+from app.repositories.auth_repository import find_auth_by_username
+from app.repositories.user_repository import find_user_by_id
+from app.repositories.auth_transaction_repository import create_user_with_auth
 from app.services.jwt_service import JWT_EXPIRES_IN_SECONDS, create_access_token
 
 

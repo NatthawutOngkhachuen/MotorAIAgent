@@ -1,2 +1,0 @@
-﻿pair_accuracy_sanity,pair_auc_sanity,reconstruction_hit_rate_at_3,reconstruction_mean_rank,train_rows,test_rows,note
-0.8191489361702128,0.39437134502923976,0.8791208791208791,1.7142857142857142,361,94,"Use metrics as small-data sanity checks, not real recommender performance."

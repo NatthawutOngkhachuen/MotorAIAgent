@@ -1,7 +1,7 @@
 import os
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from app.db.neo4j import run_query
-from app.db.chat_repository import (
+from app.repositories.chat_repository import (
     create_session,
     load_recent_messages,
     save_message,

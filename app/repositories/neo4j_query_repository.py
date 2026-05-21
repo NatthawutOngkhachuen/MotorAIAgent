@@ -16,13 +16,13 @@ def search_by_keyword(keyword: str) -> dict:
             type(r)  AS rel_type,
             id(m) AS to_id,   labels(m) AS to_labels,   properties(m) AS to_props
     """
-    matched   = run_query(cypher_nodes, {"keyword": keyword})
-    relations = run_query(cypher_rels,  {"keyword": keyword})
+    matched = run_query(cypher_nodes, {"keyword": keyword})
+    relations = run_query(cypher_rels, {"keyword": keyword})
 
     nodes_map = {}
     for row in matched:
         node = dict(row["n"])
-        nid  = next(iter(node.values()), "?")
+        nid = next(iter(node.values()), "?")
         nodes_map[str(nid)] = {"id": str(nid), "props": node, "matched": True}
 
     edges = []
@@ -39,7 +39,7 @@ def search_by_keyword(keyword: str) -> dict:
 
 
 def get_full_graph() -> dict:
-    """ดึง nodes และ edges ทั้งหมดจาก Neo4j"""
+    """Fetch all nodes and edges from Neo4j."""
     cypher = """
         MATCH (n)
         OPTIONAL MATCH (n)-[r]->(m)
@@ -55,38 +55,38 @@ def get_full_graph() -> dict:
     rows = run_query(cypher, {})
 
     nodes_map = {}
-    edges     = []
+    edges = []
 
     for row in rows:
-        fid    = str(row["from_id"])
+        fid = str(row["from_id"])
         flabel = row["from_labels"][0] if row["from_labels"] else "Node"
         fprops = dict(row["from_props"])
 
         if fid not in nodes_map:
             nodes_map[fid] = {
-                "id":    fid,
+                "id": fid,
                 "label": flabel,
-                "name":  fprops.get("name", fprops.get("id", fid)),
+                "name": fprops.get("name", fprops.get("id", fid)),
                 "props": fprops,
             }
 
         if row["rel_type"] and row["to_id"] is not None:
-            tid    = str(row["to_id"])
+            tid = str(row["to_id"])
             tlabel = row["to_labels"][0] if row["to_labels"] else "Node"
             tprops = dict(row["to_props"])
 
             if tid not in nodes_map:
                 nodes_map[tid] = {
-                    "id":    tid,
+                    "id": tid,
                     "label": tlabel,
-                    "name":  tprops.get("name", tprops.get("id", tid)),
+                    "name": tprops.get("name", tprops.get("id", tid)),
                     "props": tprops,
                 }
 
             edges.append({
                 "from": fid,
-                "to":   tid,
-                "rel":  row["rel_type"],
+                "to": tid,
+                "rel": row["rel_type"],
             })
 
     return {
