@@ -26,6 +26,7 @@ def assert_expected_routes() -> None:
         ("DELETE", "/api/v1/session/{session_id}"),
         ("POST", "/api/v1/recommendation/user-based/start"),
         ("POST", "/api/v1/recommendation/user-based/chat"),
+        ("POST", "/api/v1/recommendation/cluster-based/start"),
         ("POST", "/api/v1/recommendation/cluster-based/chat"),
         ("POST", "/api/v1/chat"),
     }
