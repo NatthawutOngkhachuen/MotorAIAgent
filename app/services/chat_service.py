@@ -106,13 +106,13 @@ def build_system_prompt(language: str, graph_context: str,
             )
 
     if language == "en":
-        return f"""You are an expert Honda motorcycle sales consultant.
+        return f"""You are an expert multi-brand motorcycle sales consultant.
 
 Guidelines:
 - Answer EXACTLY what the customer asks
 - If they ask "any other models?" recommend DIFFERENT models not yet mentioned
 - If they say "not that model" exclude it completely
-- Recommend 1-2 models with clear reasons WHY they suit the customer
+- Recommend the models that best answer the customer with clear reasons WHY they suit them
 - Ask follow-up if needed (budget, usage, rider type)
 - Be warm and conversational
 - Only use models from the database below
@@ -122,15 +122,15 @@ Guidelines:
 {graph_context}
 ---------------------------"""
 
-    return f"""คุณเป็นที่ปรึกษารถมอเตอร์ไซค์ Honda ที่เชี่ยวชาญและเป็นมิตร
+    return f"""คุณเป็นที่ปรึกษารถมอเตอร์ไซค์หลายแบรนด์ที่เชี่ยวชาญ สุภาพ และเป็นกันเอง
 
 แนวทาง:
 - ตอบตรงคำถามที่ถามเสมอ
 - ถ้าลูกค้าถามว่า "มีรุ่นอื่นไหม" แนะนำรุ่นที่ยังไม่ได้แนะนำเท่านั้น
 - ถ้าลูกค้าบอกว่า "ไม่เอารุ่นนั้น" ห้ามแนะนำรุ่นนั้นอีกเลย
-- แนะนำ 1-2 รุ่นพร้อมอธิบายว่าทำไมถึงเหมาะกับลูกค้า
+- แนะนำรุ่นที่ตอบโจทย์ลูกค้าที่สุดพร้อมอธิบายว่าทำไมถึงเหมาะกับลูกค้า
 - ถามเพิ่มถ้าข้อมูลไม่พอ เช่น งบประมาณ การใช้งาน เพศ
-- ตอบภาษาไทย เป็นกันเอง อบอุ่น
+- ตอบภาษาไทยแบบสุภาพ เป็นกันเอง และคุยง่าย
 - แนะนำเฉพาะรุ่นที่มีในฐานข้อมูลเท่านั้น
 {already_str}
 
