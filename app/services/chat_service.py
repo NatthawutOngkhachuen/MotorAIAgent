@@ -19,6 +19,10 @@ OLLAMA_BASE_URL = get_ollama_base_url()
 GUEST_USER_ID = "00000000-0000-0000-0000-000000000001"
 
 _graph_cache: str | None = None
+INITIAL_ASSISTANT_MESSAGE = (
+    "สวัสดีครับ ถามเรื่องรุ่น ยี่ห้อ หรือคุณสมบัติที่สนใจได้เลยครับ "
+    "เช่น งบประมาณเท่านี้ควรเลือกรุ่นไหน หรือรุ่นไหนเหมาะกับการใช้งานของคุณ"
+)
 
 EMOJI_PATTERN = re.compile(
     "["
@@ -249,9 +253,14 @@ async def stream_answer(question: str,
     if session_id and not session_belongs_to_user(session_id, user_id):
         session_id = None
 
+    is_new_session = False
     if not session_id:
         session_id = create_session(user_id)
+        is_new_session = True
         
+
+    if is_new_session:
+        save_message(session_id, user_id, "assistant", INITIAL_ASSISTANT_MESSAGE)
 
     raw_context   = load_recent_messages(session_id, limit=6)
     graph_context = get_graph_context()
