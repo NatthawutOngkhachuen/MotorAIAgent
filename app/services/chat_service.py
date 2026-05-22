@@ -127,7 +127,7 @@ def extract_recommended_models(history: list, all_models: list[str]) -> list[str
     return list(recommended)
 
 
-def clean_assistant_answer(text: str) -> str:
+def clean_assistant_answer(text: str, is_first_message: bool = False) -> str:
     text = EMOJI_PATTERN.sub("", text)
     replacements = {
         "นะคะ": "นะครับ",
@@ -138,6 +138,8 @@ def clean_assistant_answer(text: str) -> str:
     }
     for old, new in replacements.items():
         text = text.replace(old, new)
+    if not is_first_message:
+        text = re.sub(r"^\s*สวัสดี(?:ครับ)?[!,.،\s-]*", "", text)
     return text.strip()
 
 
@@ -288,7 +290,7 @@ async def stream_answer(question: str,
             if token:
                 full_answer += token
 
-    full_answer = clean_assistant_answer(full_answer)
+    full_answer = clean_assistant_answer(full_answer, is_first_message=is_first_message)
     if full_answer:
         yield f"data: {json.dumps({'type': 'token', 'token': full_answer})}\n\n"
 
