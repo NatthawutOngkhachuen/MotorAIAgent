@@ -119,7 +119,7 @@ Guidelines:
 - Answer EXACTLY what the customer asks
 - If they ask "any other models?" recommend DIFFERENT models not yet mentioned
 - If they say "not that model" exclude it completely
-- Recommend the models that best answer the customer with clear reasons WHY they suit them
+- If multiple database models match the customer, recommend several suitable models in the same answer with clear reasons WHY they suit them
 - Ask follow-up if needed (budget, usage, rider type)
 - Be warm and conversational
 - {greeting_rule}
@@ -136,7 +136,7 @@ Guidelines:
 - ตอบตรงคำถามที่ถามเสมอ
 - ถ้าลูกค้าถามว่า "มีรุ่นอื่นไหม" แนะนำรุ่นที่ยังไม่ได้แนะนำเท่านั้น
 - ถ้าลูกค้าบอกว่า "ไม่เอารุ่นนั้น" ห้ามแนะนำรุ่นนั้นอีกเลย
-- แนะนำรุ่นที่ตอบโจทย์ลูกค้าที่สุดพร้อมอธิบายว่าทำไมถึงเหมาะกับลูกค้า
+- ถ้ามีหลายรุ่นในฐานข้อมูลที่ตรงกับลูกค้า ให้แนะนำหลายรุ่นในคำตอบเดียว พร้อมอธิบายว่าทำไมแต่ละรุ่นถึงเหมาะกับลูกค้า
 - ถามเพิ่มถ้าข้อมูลไม่พอ เช่น งบประมาณ การใช้งาน เพศ
 - ตอบภาษาไทยแบบสุภาพ เป็นกันเอง และคุยง่าย
 - {"ทักทายลูกค้าได้ เพราะนี่เป็นคำตอบแรกของบทสนทนา" if is_first_message else "ไม่ต้องทักสวัสดีซ้ำ ให้ตอบต่อจากบทสนทนาเดิมได้เลย"}
@@ -189,7 +189,7 @@ async def stream_answer(question: str,
         model=OLLAMA_MODEL,
         base_url=OLLAMA_BASE_URL,
         temperature=0.7,
-        num_predict=400,
+        num_predict=800,
     )
 
     # ส่ง session_id และ model_count ก่อน
