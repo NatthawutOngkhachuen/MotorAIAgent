@@ -57,6 +57,13 @@ MOTORCYCLE_KEYWORDS = [
     "yamaha",
 ]
 
+GREETING_KEYWORDS = [
+    "สวัสดี",
+    "หวัดดี",
+    "hello",
+    "hi",
+]
+
 
 def get_graph_context() -> str:
     global _graph_cache
@@ -127,7 +134,7 @@ def extract_recommended_models(history: list, all_models: list[str]) -> list[str
     return list(recommended)
 
 
-def clean_assistant_answer(text: str, is_first_message: bool = False) -> str:
+def clean_assistant_answer(text: str, allow_greeting: bool = False) -> str:
     text = EMOJI_PATTERN.sub("", text)
     replacements = {
         "นะคะ": "นะครับ",
@@ -138,7 +145,7 @@ def clean_assistant_answer(text: str, is_first_message: bool = False) -> str:
     }
     for old, new in replacements.items():
         text = text.replace(old, new)
-    if not is_first_message:
+    if not allow_greeting:
         text = re.sub(r"^\s*สวัสดี(?:ครับ)?[!,.،\s-]*", "", text)
     return text.strip()
 
@@ -164,9 +171,14 @@ def is_duplicate_off_topic_reply(raw_context: list, question: str) -> bool:
     )
 
 
+def is_greeting_question(question: str) -> bool:
+    normalized = question.strip().lower()
+    return any(keyword in normalized for keyword in GREETING_KEYWORDS)
+
+
 def build_system_prompt(language: str, graph_context: str,
                         already_recommended: list[str],
-                        is_first_message: bool = False) -> str:
+                        allow_greeting: bool = False) -> str:
     already_str = ""
     if already_recommended:
         names = ", ".join(already_recommended)
@@ -183,7 +195,7 @@ def build_system_prompt(language: str, graph_context: str,
 
     greeting_rule = (
         "You may greet the customer once because this is the first assistant reply."
-        if is_first_message
+        if allow_greeting
         else "Do not greet again; continue the conversation directly without saying hello or สวัสดี."
     )
 
@@ -217,7 +229,7 @@ Guidelines:
 - ถามเพิ่มถ้าข้อมูลไม่พอ เช่น งบประมาณ การใช้งาน เพศ
 - ตอบภาษาไทยแบบสุภาพ เป็นกันเอง และคุยง่าย
 - กำหนดให้แชทบอทเป็นผู้ชาย ใช้คำลงท้ายสุภาพว่า "ครับ" เท่านั้น ห้ามใช้ "ค่ะ", "คะ", "จ้า" และห้ามใช้อิโมจิ
-- {"ทักทายลูกค้าได้ เพราะนี่เป็นคำตอบแรกของบทสนทนา" if is_first_message else "ไม่ต้องทักสวัสดีซ้ำ ให้ตอบต่อจากบทสนทนาเดิมได้เลย"}
+- {"ทักทายลูกค้าได้ เพราะลูกค้าเริ่มด้วยคำทักทาย" if allow_greeting else "ไม่ต้องทักสวัสดี ให้ตอบต่อจากข้อมูลหรือคำถามของลูกค้าได้เลย"}
 - ถ้าลูกค้าถามเรื่องที่ไม่เกี่ยวกับรถมอเตอร์ไซค์หรือสินค้าที่มีในฐานข้อมูล ให้ตอบสั้น ๆ อย่างสุภาพว่าเราช่วยเรื่องแนะนำรถมอเตอร์ไซค์เป็นหลัก แล้วชวนกลับมาคุยเรื่องรุ่นรถที่เหมาะกับลูกค้า
 - แนะนำเฉพาะรุ่นที่มีในฐานข้อมูลเท่านั้น
 {already_str}
@@ -248,6 +260,7 @@ async def stream_answer(question: str,
 
     already_recommended = extract_recommended_models(raw_context, all_models)
     is_first_message = len(raw_context) == 0
+    allow_greeting = is_first_message and is_greeting_question(question)
     is_off_topic = is_off_topic_question(question, all_models)
 
     history = []
@@ -259,7 +272,7 @@ async def stream_answer(question: str,
 
     llm_messages = [
         SystemMessage(content=build_system_prompt(
-            language, graph_context, already_recommended, is_first_message
+            language, graph_context, already_recommended, allow_greeting
         )),
         *history,
         HumanMessage(content=question),
@@ -290,7 +303,7 @@ async def stream_answer(question: str,
             if token:
                 full_answer += token
 
-    full_answer = clean_assistant_answer(full_answer, is_first_message=is_first_message)
+    full_answer = clean_assistant_answer(full_answer, allow_greeting=allow_greeting)
     if full_answer:
         yield f"data: {json.dumps({'type': 'token', 'token': full_answer})}\n\n"
 
