@@ -90,7 +90,8 @@ def extract_recommended_models(history: list, all_models: list[str]) -> list[str
 
 
 def build_system_prompt(language: str, graph_context: str,
-                        already_recommended: list[str]) -> str:
+                        already_recommended: list[str],
+                        is_first_message: bool = False) -> str:
     already_str = ""
     if already_recommended:
         names = ", ".join(already_recommended)
@@ -105,6 +106,12 @@ def build_system_prompt(language: str, graph_context: str,
                 f"Do NOT repeat these if customer asks for other models."
             )
 
+    greeting_rule = (
+        "You may greet the customer once because this is the first assistant reply."
+        if is_first_message
+        else "Do not greet again; continue the conversation directly without saying hello or สวัสดี."
+    )
+
     if language == "en":
         return f"""You are an expert multi-brand motorcycle sales consultant.
 
@@ -115,6 +122,7 @@ Guidelines:
 - Recommend the models that best answer the customer with clear reasons WHY they suit them
 - Ask follow-up if needed (budget, usage, rider type)
 - Be warm and conversational
+- {greeting_rule}
 - Only use models from the database below
 {already_str}
 
@@ -131,6 +139,7 @@ Guidelines:
 - แนะนำรุ่นที่ตอบโจทย์ลูกค้าที่สุดพร้อมอธิบายว่าทำไมถึงเหมาะกับลูกค้า
 - ถามเพิ่มถ้าข้อมูลไม่พอ เช่น งบประมาณ การใช้งาน เพศ
 - ตอบภาษาไทยแบบสุภาพ เป็นกันเอง และคุยง่าย
+- {"ทักทายลูกค้าได้ เพราะนี่เป็นคำตอบแรกของบทสนทนา" if is_first_message else "ไม่ต้องทักสวัสดีซ้ำ ให้ตอบต่อจากบทสนทนาเดิมได้เลย"}
 - แนะนำเฉพาะรุ่นที่มีในฐานข้อมูลเท่านั้น
 {already_str}
 
@@ -159,6 +168,7 @@ async def stream_answer(question: str,
     model_count   = graph_context.count("รุ่น:")
 
     already_recommended = extract_recommended_models(raw_context, all_models)
+    is_first_message = len(raw_context) == 0
 
     history = []
     for m in raw_context:
@@ -169,7 +179,7 @@ async def stream_answer(question: str,
 
     llm_messages = [
         SystemMessage(content=build_system_prompt(
-            language, graph_context, already_recommended
+            language, graph_context, already_recommended, is_first_message
         )),
         *history,
         HumanMessage(content=question),
