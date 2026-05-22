@@ -12,12 +12,50 @@ from app.services.ollama_client import get_ollama_base_url, make_chat_ollama
 from typing import AsyncGenerator
 import time
 import json
+import re
 
 OLLAMA_MODEL  = os.getenv("OLLAMA_MODEL", "typhoon2")
 OLLAMA_BASE_URL = get_ollama_base_url()
 GUEST_USER_ID = "00000000-0000-0000-0000-000000000001"
 
 _graph_cache: str | None = None
+
+EMOJI_PATTERN = re.compile(
+    "["
+    "\U0001F300-\U0001FAFF"
+    "\U00002700-\U000027BF"
+    "\U00002600-\U000026FF"
+    "]+",
+    flags=re.UNICODE,
+)
+
+OFF_TOPIC_KEYWORDS = [
+    "กินข้าว",
+    "หิว",
+    "อาหาร",
+    "ร้านอาหาร",
+    "ไปเที่ยวกัน",
+    "เที่ยวกันไหม",
+    "ดูหนัง",
+    "เล่นเกม",
+    "เพลง",
+    "หวย",
+    "ข่าว",
+]
+
+MOTORCYCLE_KEYWORDS = [
+    "รถ",
+    "มอเตอร์ไซค์",
+    "มอไซค์",
+    "รุ่น",
+    "ขับ",
+    "ขี่",
+    "เดินทาง",
+    "งบ",
+    "ราคา",
+    "honda",
+    "yamaha",
+]
 
 
 def get_graph_context() -> str:
@@ -89,6 +127,41 @@ def extract_recommended_models(history: list, all_models: list[str]) -> list[str
     return list(recommended)
 
 
+def clean_assistant_answer(text: str) -> str:
+    text = EMOJI_PATTERN.sub("", text)
+    replacements = {
+        "นะคะ": "นะครับ",
+        "ค่ะ": "ครับ",
+        "คะ": "ครับ",
+        "จ้า": "ครับ",
+        "จ๊ะ": "ครับ",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text.strip()
+
+
+def is_off_topic_question(question: str, all_models: list[str]) -> bool:
+    normalized = question.strip().lower()
+    if not normalized:
+        return False
+    if any(model.lower() in normalized for model in all_models):
+        return False
+    if any(keyword in normalized for keyword in MOTORCYCLE_KEYWORDS):
+        return False
+    return any(keyword in normalized for keyword in OFF_TOPIC_KEYWORDS)
+
+
+def is_duplicate_off_topic_reply(raw_context: list, question: str) -> bool:
+    if len(raw_context) < 2:
+        return False
+    return (
+        raw_context[-2].get("role") == "user"
+        and raw_context[-2].get("content", "").strip() == question.strip()
+        and raw_context[-1].get("role") == "assistant"
+    )
+
+
 def build_system_prompt(language: str, graph_context: str,
                         already_recommended: list[str],
                         is_first_message: bool = False) -> str:
@@ -123,6 +196,7 @@ Guidelines:
 - Ask follow-up if needed (budget, usage, rider type)
 - Be warm and conversational
 - {greeting_rule}
+- The assistant persona is male. In Thai, end politely with "ครับ" only. Do not use "ค่ะ", "คะ", "จ้า", or emojis.
 - If the customer asks about something unrelated to motorcycles or our vehicle database, politely say you mainly help with motorcycle recommendations and guide the conversation back to choosing a suitable motorcycle.
 - Only use models from the database below
 {already_str}
@@ -140,6 +214,7 @@ Guidelines:
 - ถ้ามีหลายรุ่นในฐานข้อมูลที่ตรงกับลูกค้า ให้แนะนำหลายรุ่นในคำตอบเดียว พร้อมอธิบายว่าทำไมแต่ละรุ่นถึงเหมาะกับลูกค้า
 - ถามเพิ่มถ้าข้อมูลไม่พอ เช่น งบประมาณ การใช้งาน เพศ
 - ตอบภาษาไทยแบบสุภาพ เป็นกันเอง และคุยง่าย
+- กำหนดให้แชทบอทเป็นผู้ชาย ใช้คำลงท้ายสุภาพว่า "ครับ" เท่านั้น ห้ามใช้ "ค่ะ", "คะ", "จ้า" และห้ามใช้อิโมจิ
 - {"ทักทายลูกค้าได้ เพราะนี่เป็นคำตอบแรกของบทสนทนา" if is_first_message else "ไม่ต้องทักสวัสดีซ้ำ ให้ตอบต่อจากบทสนทนาเดิมได้เลย"}
 - ถ้าลูกค้าถามเรื่องที่ไม่เกี่ยวกับรถมอเตอร์ไซค์หรือสินค้าที่มีในฐานข้อมูล ให้ตอบสั้น ๆ อย่างสุภาพว่าเราช่วยเรื่องแนะนำรถมอเตอร์ไซค์เป็นหลัก แล้วชวนกลับมาคุยเรื่องรุ่นรถที่เหมาะกับลูกค้า
 - แนะนำเฉพาะรุ่นที่มีในฐานข้อมูลเท่านั้น
@@ -171,6 +246,7 @@ async def stream_answer(question: str,
 
     already_recommended = extract_recommended_models(raw_context, all_models)
     is_first_message = len(raw_context) == 0
+    is_off_topic = is_off_topic_question(question, all_models)
 
     history = []
     for m in raw_context:
@@ -197,15 +273,24 @@ async def stream_answer(question: str,
     # ส่ง session_id และ model_count ก่อน
     yield f"data: {json.dumps({'type': 'session', 'session_id': session_id, 'model_count': model_count})}\n\n"
 
+    if is_off_topic and is_duplicate_off_topic_reply(raw_context, question):
+        yield f"data: {json.dumps({'type': 'done', 'elapsed': 0})}\n\n"
+        return
+
     start_time  = time.time()
     full_answer = ""
 
-    # Stream ทีละ token
-    async for chunk in llm.astream(llm_messages):
-        token = chunk.content
-        if token:
-            full_answer += token
-            yield f"data: {json.dumps({'type': 'token', 'token': token})}\n\n"
+    if is_off_topic:
+        full_answer = "ขอโทษนะครับ ผมช่วยเรื่องแนะนำรถมอเตอร์ไซค์เป็นหลักครับ ถ้าต้องการ ผมช่วยดูรุ่นที่เหมาะกับการใช้งาน งบประมาณ หรือสไตล์ที่คุณชอบได้ครับ"
+    else:
+        async for chunk in llm.astream(llm_messages):
+            token = chunk.content
+            if token:
+                full_answer += token
+
+    full_answer = clean_assistant_answer(full_answer)
+    if full_answer:
+        yield f"data: {json.dumps({'type': 'token', 'token': full_answer})}\n\n"
 
     elapsed = round(time.time() - start_time, 1)
 
