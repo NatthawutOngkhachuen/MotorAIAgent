@@ -46,6 +46,19 @@ async def start_user_based_chat(
     )
 
 
+@router.post("/recommendation/cluster-based/start")
+async def start_cluster_based_chat(
+    current_user_id: str = Depends(get_current_user_id),
+):
+    return _stream(
+        question="",
+        language="th",
+        session_id=None,
+        user_id=current_user_id,
+        recommendation_mode="cluster_based",
+    )
+
+
 @router.post("/recommendation/user-based/chat")
 async def user_based_chat(
     req: ChatRequest,

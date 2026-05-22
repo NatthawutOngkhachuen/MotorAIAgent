@@ -4,6 +4,7 @@ from app.api.V1.auth_dependencies import get_current_user_id
 from app.schemas.chat_schema import ChatRequest
 from app.services.chat_service import stream_answer
 from app.repositories import chat_repository as pg
+from app.services.query_service import search_by_keyword, get_full_graph
 
 router = APIRouter()
 
@@ -63,5 +64,12 @@ async def delete_session(
         return {"deleted": True, "session_id": session_id}
     except HTTPException:
         raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/graph")
+async def graph():
+    try:
+        return get_full_graph()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
