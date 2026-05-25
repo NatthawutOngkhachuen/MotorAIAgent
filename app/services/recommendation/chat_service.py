@@ -16,9 +16,6 @@ from app.services.recommendation.slot_filling import SlotFillingService, SlotFil
 
 load_dotenv()
 
-GUEST_USER_ID = "00000000-0000-0000-0000-000000000001"
-
-
 class UserPreferenceChatService:
     def __init__(
         self,
@@ -27,7 +24,7 @@ class UserPreferenceChatService:
         graph_retriever: Any | None = None,
     ):
         self.slot_service = slot_service or SlotFillingService(extractor_factory=LangChainSlotExtractor)
-        self.recommender = recommender or UserBasedRecommender()
+        self.recommender = recommender
         self.graph_retriever = graph_retriever
 
     async def stream(
@@ -39,7 +36,8 @@ class UserPreferenceChatService:
         recommendation_mode: str = "user_based",
     ) -> AsyncGenerator[str, None]:
         del language
-        user_id = user_id or GUEST_USER_ID
+        if not user_id:
+            raise ValueError("user_id is required")
         db = self._chat_repository()
         session_id = self._get_or_create_session(session_id, user_id)
         yield self._event("session", {"session_id": session_id})
@@ -115,12 +113,13 @@ class UserPreferenceChatService:
 
         nearest: dict[str, Any] | None = None
         cluster: dict[str, Any] | None = None
+        recommender = self._get_recommender()
         if recommendation_mode == "cluster_based":
-            cluster = self.recommender.recommend_cluster(state.preferences, top_k=None)
+            cluster = recommender.recommend_cluster(state.preferences, top_k=None)
             candidates = cluster["candidates"]
             source = "cluster_based_slot_filling"
         else:
-            nearest = self.recommender.recommend_nearest_user(state.preferences, top_k=1)
+            nearest = recommender.recommend_nearest_user(state.preferences, top_k=1)
             candidates = nearest["candidates"]
             source = "user_based_slot_filling"
 
@@ -230,6 +229,11 @@ class UserPreferenceChatService:
         from app.services.recommendation.graph_retriever import GraphRetriever
 
         return GraphRetriever()
+
+    def _get_recommender(self) -> UserBasedRecommender:
+        if self.recommender is None:
+            self.recommender = UserBasedRecommender()
+        return self.recommender
 
     async def _stream_final_answer(
         self,

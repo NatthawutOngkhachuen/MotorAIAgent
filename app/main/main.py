@@ -60,6 +60,17 @@ app.include_router(auth_router, prefix="/api/v1")
 app.include_router(recommendation_chat_router, prefix="/api/v1")
 
 
+@app.on_event("startup")
+def warm_database_pool():
+    try:
+        from app.db.postgresql import get_connection, release_connection
+
+        conn = get_connection()
+        release_connection(conn)
+    except Exception as exc:
+        print(f"[WARN] PostgreSQL pool warmup failed: {exc}")
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}

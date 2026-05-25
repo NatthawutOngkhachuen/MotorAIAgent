@@ -16,8 +16,6 @@ import re
 
 OLLAMA_MODEL  = os.getenv("OLLAMA_MODEL", "typhoon2")
 OLLAMA_BASE_URL = get_ollama_base_url()
-GUEST_USER_ID = "00000000-0000-0000-0000-000000000001"
-
 _graph_cache: str | None = None
 INITIAL_ASSISTANT_MESSAGE = (
     "สวัสดีครับ ถามเรื่องรุ่น ยี่ห้อ หรือคุณสมบัติที่สนใจได้เลยครับ "
@@ -250,7 +248,8 @@ async def stream_answer(question: str,
                         session_id: str = None,
                         user_id: str = None
                         ) -> AsyncGenerator[str, None]: 
-    user_id = user_id or GUEST_USER_ID
+    if not user_id:
+        raise ValueError("user_id is required")
 
     if session_id and not session_belongs_to_user(session_id, user_id):
         session_id = None
