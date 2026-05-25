@@ -66,9 +66,11 @@ class UserBasedRecommender:
         centroids = self._load_centroids()
         query = np.array(preference_to_vector(preference), dtype=float).reshape(1, -1)
         centroid_x = centroids[FEATURE_NAMES].astype(float).to_numpy()
-        sims = cosine_similarity(query, centroid_x)[0]
-        best_index = int(np.argmax(sims))
+        distances = np.linalg.norm(centroid_x - query, axis=1)
+        best_index = int(np.argmin(distances))
         cluster_id = int(centroids.iloc[best_index]["cluster"])
+        cluster_distance = float(distances[best_index])
+        cluster_similarity = 1.0 / (1.0 + cluster_distance)
 
         members = clusters[clusters["cluster"].astype(int) == cluster_id].copy()
         members = members.sort_values(["mapped_model", "user_id"])
@@ -78,7 +80,8 @@ class UserBasedRecommender:
         return {
             "method": "cluster",
             "cluster": cluster_id,
-            "cluster_similarity": float(sims[best_index]),
+            "cluster_similarity": cluster_similarity,
+            "cluster_distance": cluster_distance,
             "cluster_size": int(len(members)),
             "candidates": deduped,
         }
