@@ -60,11 +60,12 @@ class UserPreferenceChatService:
             yield self._event("done", {"elapsed": round(time.time() - started_at, 1)})
             return
 
-        history = db["load_all_messages"](session_id, user_id)
         latest_state = db["load_latest_slot_state"](session_id, user_id)
         if latest_state:
             state = SlotFillingState.from_dict(latest_state)
+            history = None
         else:
+            history = db["load_all_messages"](session_id, user_id)
             state = self.slot_service.rebuild_state_from_messages(history)
 
         if state.is_complete:
@@ -87,6 +88,7 @@ class UserPreferenceChatService:
             question,
             state,
             chat_history=history,
+            chat_history_loader=lambda: db["load_recent_messages"](session_id, limit=6),
             session_id=session_id,
         )
 
@@ -199,6 +201,7 @@ class UserPreferenceChatService:
         from app.repositories.chat_repository import (
             create_session,
             load_all_messages,
+            load_recent_messages,
             save_message,
             session_belongs_to_user,
             update_session_active,
@@ -208,6 +211,7 @@ class UserPreferenceChatService:
         return {
             "create_session": create_session,
             "load_all_messages": load_all_messages,
+            "load_recent_messages": load_recent_messages,
             "load_latest_slot_state": load_latest_slot_state,
             "save_message": save_message,
             "session_belongs_to_user": session_belongs_to_user,
