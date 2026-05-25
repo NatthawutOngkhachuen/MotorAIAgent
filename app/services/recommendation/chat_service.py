@@ -26,7 +26,7 @@ class UserPreferenceChatService:
         recommender: UserBasedRecommender | None = None,
         graph_retriever: Any | None = None,
     ):
-        self.slot_service = slot_service or SlotFillingService(extractor=LangChainSlotExtractor())
+        self.slot_service = slot_service or SlotFillingService(extractor_factory=LangChainSlotExtractor)
         self.recommender = recommender or UserBasedRecommender()
         self.graph_retriever = graph_retriever
 

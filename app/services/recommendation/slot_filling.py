@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from collections.abc import Callable
 from typing import Any
 
 from app.services.recommendation.vectorizer import (
@@ -101,8 +102,13 @@ class SlotFillingState:
 
 
 class SlotFillingService:
-    def __init__(self, extractor: Any | None = None):
+    def __init__(
+        self,
+        extractor: Any | None = None,
+        extractor_factory: Callable[[], Any] | None = None,
+    ):
         self.extractor = extractor
+        self.extractor_factory = extractor_factory
 
     def start(self) -> tuple[str, SlotFillingState]:
         state = SlotFillingState()
@@ -205,11 +211,15 @@ class SlotFillingService:
         self._extract_levels(text_norm, last_asked_slots or [], result)
         self._extract_booleans(text_norm, result)
 
-        if not use_llm or self.extractor is None:
+        if not use_llm:
+            return result
+
+        extractor = self._get_extractor()
+        if extractor is None:
             return result
 
         try:
-            langchain_result = self.extractor.extract(
+            langchain_result = extractor.extract(
                 user_message=text,
                 chat_history=chat_history or [],
                 current_preferences=current_preferences or empty_preference_state(),
@@ -220,6 +230,11 @@ class SlotFillingService:
             return result
 
         return merge_preferences(langchain_result, result)
+
+    def _get_extractor(self) -> Any | None:
+        if self.extractor is None and self.extractor_factory is not None:
+            self.extractor = self.extractor_factory()
+        return self.extractor
 
     def next_question(
         self,
