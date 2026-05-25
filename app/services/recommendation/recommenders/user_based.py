@@ -22,15 +22,15 @@ class UserBasedRecommender:
     ):
         self.vector_path = Path(
             vector_path
-            or os.getenv("USER_PREFERENCE_VECTOR_PATH", "data/recommendation_output/final/user_preference_vectors_expanded.csv")
+            or os.getenv("USER_PREFERENCE_VECTOR_PATH", "data/clustering_output/final/user_preference_vectors_expanded.csv")
         )
         self.cluster_path = Path(
             cluster_path
-            or os.getenv("USER_PREFERENCE_CLUSTER_PATH", "data/recommendation_output/final/user_preference_clusters.csv")
+            or os.getenv("USER_PREFERENCE_CLUSTER_PATH", "data/clustering_output/final/user_preference_clusters.csv")
         )
         self.centroid_path = Path(
             centroid_path
-            or os.getenv("USER_PREFERENCE_CENTROID_PATH", "data/recommendation_output/final/user_preference_cluster_centroids.csv")
+            or os.getenv("USER_PREFERENCE_CENTROID_PATH", "data/clustering_output/final/user_preference_cluster_centroids.csv")
         )
         self.items_path = Path(items_path or os.getenv("ITEMS_FEATURE_PATH", "data/Items_Feature.csv"))
 

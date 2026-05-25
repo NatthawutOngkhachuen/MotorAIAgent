@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 import sys
 
+from dotenv import load_dotenv
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
+load_dotenv(PROJECT_ROOT / ".env")
 
 from app.main.main import app
 from app.services.recommendation.recommenders.user_based import UserBasedRecommender
@@ -38,12 +42,16 @@ def assert_expected_routes() -> None:
 
 def assert_recommendation_assets() -> None:
     required_files = [
-        "data/Items_Feature.csv",
-        "data/recommendation_output/final/user_preference_vectors_expanded.csv",
-        "data/recommendation_output/final/user_preference_clusters.csv",
-        "data/recommendation_output/final/user_preference_cluster_centroids.csv",
+        os.getenv("ITEMS_FEATURE_PATH", "data/Items_Feature.csv"),
+        os.getenv("USER_PREFERENCE_VECTOR_PATH", "data/clustering_output/final/user_preference_vectors_expanded.csv"),
+        os.getenv("USER_PREFERENCE_CLUSTER_PATH", "data/clustering_output/final/user_preference_clusters.csv"),
+        os.getenv("USER_PREFERENCE_CENTROID_PATH", "data/clustering_output/final/user_preference_cluster_centroids.csv"),
     ]
-    missing = [path for path in required_files if not (PROJECT_ROOT / path).exists()]
+    missing = [
+        path
+        for path in required_files
+        if not (Path(path) if Path(path).is_absolute() else PROJECT_ROOT / path).exists()
+    ]
     if missing:
         raise AssertionError(f"Missing recommendation data files: {', '.join(missing)}")
 
