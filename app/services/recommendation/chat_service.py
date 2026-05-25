@@ -389,6 +389,7 @@ class UserPreferenceChatService:
             "- Recommend only the models in response_candidates.\n"
             "- Use relevant_graph_evidence for grounding, but do not say evidence, context, GraphRAG, cluster, UUID, score, rank, cosine, or internal system terms.\n"
             "- Do not invent specs, prices, features, or model names that are not in the data.\n"
+            "- When mentioning price, use the exact price_est_thb from response_candidates formatted as Thai baht, for example 45,000 บาท. Do not convert prices into ranges such as 45-50 พันบาท.\n"
             "- If a data point is not relevant to the customer's needs, skip it.\n"
             "- Markdown is allowed. Use it only to improve readability, not as a rigid report.\n"
             "- Do not use HTML tags such as <br>, <p>, <ul>, or <li>. Do not output JSON.\n\n"
