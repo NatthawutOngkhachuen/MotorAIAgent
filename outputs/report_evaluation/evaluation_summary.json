@@ -1,0 +1,182 @@
+{
+  "k_scores": [
+    {
+      "k": 2,
+      "silhouette": 0.1729767737064921,
+      "inertia": 245.1359910447761
+    },
+    {
+      "k": 3,
+      "silhouette": 0.1731130480241805,
+      "inertia": 223.25316672413794
+    },
+    {
+      "k": 4,
+      "silhouette": 0.14116488877077504,
+      "inertia": 205.33586648394243
+    },
+    {
+      "k": 5,
+      "silhouette": 0.10047084676830403,
+      "inertia": 193.47567937062936
+    },
+    {
+      "k": 6,
+      "silhouette": 0.1118172345079839,
+      "inertia": 185.82861883838387
+    },
+    {
+      "k": 7,
+      "silhouette": 0.12394011834341073,
+      "inertia": 177.29539
+    },
+    {
+      "k": 8,
+      "silhouette": 0.10212794317097068,
+      "inertia": 170.93406088023087
+    }
+  ],
+  "best_k": 3,
+  "cluster_profile": [
+    {
+      "cluster": 0,
+      "n_users": 13,
+      "top_models": "Wave 125i, Giorno+, PCX 160",
+      "item_ids": "I001,I004,I005,I007,I009"
+    },
+    {
+      "cluster": 1,
+      "n_users": 20,
+      "top_models": "Forza 350, N-MAX, PCX 160",
+      "item_ids": "I001,I002,I003,I005,I006,I007,I009"
+    },
+    {
+      "cluster": 2,
+      "n_users": 58,
+      "top_models": "N-MAX, Forza 350, Grand Filano Hybrid",
+      "item_ids": "I001,I002,I003,I004,I005,I006,I007,I008,I009"
+    }
+  ],
+  "figures": {
+    "silhouette": "E:\\Final Project-PIM\\Dev\\MotorAIAgent\\outputs\\report_evaluation\\silhouette_k_selection.png",
+    "all_k_scatter": "E:\\Final Project-PIM\\Dev\\MotorAIAgent\\outputs\\report_evaluation\\cluster_scatter_all_k.png",
+    "best_cluster": "E:\\Final Project-PIM\\Dev\\MotorAIAgent\\outputs\\report_evaluation\\best_cluster_centroids.png",
+    "user_scores": "E:\\Final Project-PIM\\Dev\\MotorAIAgent\\outputs\\report_evaluation\\user_satisfaction_scores.png"
+  },
+  "examples": {
+    "input_preference": {
+      "budget_level": "low",
+      "usage_fit": [
+        "city",
+        "daily"
+      ],
+      "style": [
+        "modern",
+        "sporty"
+      ],
+      "performance": "high",
+      "comfort": "medium",
+      "safety_level": "medium",
+      "technology_level": "medium",
+      "easy_to_ride": true,
+      "fuel_saving": true,
+      "storage_need": false,
+      "maintenance_easy": true
+    },
+    "user_based": {
+      "method": "nearest_user",
+      "matched_user_id": "UID49",
+      "matched_similarity": 0.7597967623979369,
+      "candidates": [
+        {
+          "rank": 1,
+          "item_id": "I006",
+          "brand": "Yamaha",
+          "model": "N-MAX",
+          "price_est_thb": 95500,
+          "method": "nearest_user",
+          "matched_user_id": "UID49",
+          "similarity": 0.7597967623979369
+        },
+        {
+          "rank": 2,
+          "item_id": "I005",
+          "brand": "Yamaha",
+          "model": "Grand Filano Hybrid",
+          "price_est_thb": 69200,
+          "method": "nearest_user",
+          "matched_user_id": "UID33",
+          "similarity": 0.6686749913723391
+        },
+        {
+          "rank": 3,
+          "item_id": "I001",
+          "brand": "Honda",
+          "model": "Click 160",
+          "price_est_thb": 69900,
+          "method": "nearest_user",
+          "matched_user_id": "UID8",
+          "similarity": 0.6551582547622018
+        }
+      ]
+    },
+    "cluster_based": {
+      "method": "cluster",
+      "cluster": 1,
+      "cluster_similarity": 0.760707245983662,
+      "cluster_size": 20,
+      "candidates": [
+        {
+          "rank": 1,
+          "item_id": "I002",
+          "brand": "Honda",
+          "model": "ADV 160",
+          "price_est_thb": 99900,
+          "method": "cluster_member",
+          "matched_user_id": "UID2",
+          "similarity": null
+        },
+        {
+          "rank": 2,
+          "item_id": "I001",
+          "brand": "Honda",
+          "model": "Click 160",
+          "price_est_thb": 69900,
+          "method": "cluster_member",
+          "matched_user_id": "UID8",
+          "similarity": null
+        },
+        {
+          "rank": 3,
+          "item_id": "I003",
+          "brand": "Honda",
+          "model": "Forza 350",
+          "price_est_thb": 179000,
+          "method": "cluster_member",
+          "matched_user_id": "UID20",
+          "similarity": null
+        },
+        {
+          "rank": 4,
+          "item_id": "I005",
+          "brand": "Yamaha",
+          "model": "Grand Filano Hybrid",
+          "price_est_thb": 69200,
+          "method": "cluster_member",
+          "matched_user_id": "UID33",
+          "similarity": null
+        },
+        {
+          "rank": 5,
+          "item_id": "I006",
+          "brand": "Yamaha",
+          "model": "N-MAX",
+          "price_est_thb": 95500,
+          "method": "cluster_member",
+          "matched_user_id": "UID48",
+          "similarity": null
+        }
+      ]
+    }
+  }
+}
