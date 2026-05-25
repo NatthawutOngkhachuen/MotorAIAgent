@@ -387,6 +387,7 @@ class UserPreferenceChatService:
             f"{mode_rules}\n"
             "Content rules:\n"
             "- Recommend only the models in response_candidates.\n"
+            "- Use each candidate's brand and model exactly as provided in response_candidates. Do not infer or change brand/model pairs.\n"
             "- Use relevant_graph_evidence for grounding, but do not say evidence, context, GraphRAG, cluster, UUID, score, rank, cosine, or internal system terms.\n"
             "- Do not invent specs, prices, features, or model names that are not in the data.\n"
             "- When mentioning price ranges, write full baht numbers, for example 30,000-40,000 บาท. Do not write shortened thousand-baht ranges such as 30-40 พันบาท.\n"
