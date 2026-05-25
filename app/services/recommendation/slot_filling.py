@@ -131,6 +131,7 @@ class SlotFillingService:
         user_message: str,
         state: SlotFillingState | None = None,
         chat_history: list[dict[str, Any]] | None = None,
+        chat_history_loader: Callable[[], list[dict[str, Any]]] | None = None,
         session_id: str = "recommendation-session",
     ) -> tuple[SlotFillingState, str | None]:
         state = state or SlotFillingState()
@@ -143,6 +144,8 @@ class SlotFillingService:
             use_llm=False,
         )
         if not self._can_skip_llm(extracted, state.preferences, state.last_asked_slots, user_message):
+            if chat_history is None and chat_history_loader is not None:
+                chat_history = chat_history_loader()
             extracted = self.extract_preferences(
                 user_message,
                 state.last_asked_slots,
