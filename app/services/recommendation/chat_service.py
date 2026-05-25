@@ -200,11 +200,11 @@ class UserPreferenceChatService:
         from app.repositories.chat_repository import (
             create_session,
             load_all_messages,
-            load_latest_slot_state,
             save_message,
             session_belongs_to_user,
             update_session_active,
         )
+        from app.services.recommendation.slot_state_store import load_latest_slot_state
 
         return {
             "create_session": create_session,
