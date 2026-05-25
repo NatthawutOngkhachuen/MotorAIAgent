@@ -320,7 +320,6 @@ async def stream_answer(question: str,
 
     elapsed = round(time.time() - start_time, 1)
 
-    # บอก frontend ว่าเสร็จแล้ว พร้อมเวลาที่ใช้
     yield f"data: {json.dumps({'type': 'done', 'elapsed': elapsed})}\n\n"
 
     # บันทึกลง PostgreSQL
